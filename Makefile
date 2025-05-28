@@ -1,24 +1,25 @@
 CC = gcc
-DEBUG = -g3 -fsanitize=address -Wall 
-CFLAGS = -std=c99 \$(DEBUG) # remova o debug quando nao for utilizar suas flags
+DEBUG = -g3 -fsanitize=address -Wall
+CFLAGS = -std=c99 $(DEBUG) # remova o debug quando nao for utilizar suas flags
 
-TARGET = main
+TARGET = jpegtools
 
-SRCS = \${wildcard src/*.c} 
-HDRS = \${wildcard include/*.h}
-OBJS = \$(SRCS:src/%.c=obj/%.o)
+SRCS = ${wildcard src/*.c} 
+HDRS = ${wildcard include/*.h}
+OBJS = $(SRCS:src/%.c=obj/%.o)
 
-all: \$(TARGET)
+all: $(TARGET)
 
-\$(TARGET): \$(OBJS)
-	\$(CC) \$(CFLAGS) -o \$@ \$^
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^
 
-obj/%.o: src/%.c \$(HDRS)
-	\$(CC) \$(CFLAGS) -c \$< -o \$@
+obj/%.o: src/%.c $(HDRS)
+	@mkdir -p obj
+	$(CC) $(CFLAGS) -c $< -o $@
 
-run: \$(TARGET)
-	./\$(TARGET)
+run: $(TARGET)
+	./$(TARGET)
 
 .PHONY: clean
 clean:
-	rm -rf /obj/* \$(TARGET)
+	rm -rf obj $(TARGET)

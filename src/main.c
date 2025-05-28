@@ -13,8 +13,8 @@ João Pedro Mori Machado
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "include/file_handler.h"
-#include "include/YCbCr_handler.h"
+#include "../include/file_handler.h"
+#include "../include/YCbCr_handler.h"
 
 void RBG2YCbCr(unsigned char **R, unsigned char **G, unsigned char **B, 
     unsigned char **Y, unsigned char **Cb, unsigned char **Cr, int n_linhas, int n_colunas){
@@ -113,9 +113,8 @@ int main()
         fseek(arquivo, padding, SEEK_CUR);
     }
 
-    salvarImagemBMP("imagem_saida.bmp", bmp_file_header, bmp_info_header, R, G, B);
+    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, R, G, B);
     printf("Imagem salva como imagem_saida.bmp\n");
-
 
     return 0;
 }
