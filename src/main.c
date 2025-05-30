@@ -42,12 +42,7 @@ int main()
 
         RGB2YCbCr(YCbCr_img, rgb_img);
 
-        RGBImg rgb_img2 = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
-
-        YCbCr2RGB(YCbCr_img, rgb_img2);
-
-       
-
+        YCbCrImg YCbCr_img_reduced = downsamplig(YCbCr_img);
 
     fclose(input_file);
 
@@ -55,8 +50,8 @@ int main()
     printf("Imagem salva como imagem_saida.bmp\n");
 
     liberar_RGB(rgb_img);
-    liberar_RGB(rgb_img2);
     liberar_YCbCr(YCbCr_img);
+    liberar_YCbCr_reduced(YCbCr_img_reduced);
 
     return 0;
 }

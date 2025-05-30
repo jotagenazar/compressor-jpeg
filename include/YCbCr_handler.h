@@ -54,9 +54,13 @@
 
     void liberar_YCbCr(YCbCrImg YCbCr_img);
 
+    void liberar_YCbCr_reduced(YCbCrImg YCbCr_img);
+
     void RGB2YCbCr(YCbCrImg YCbCr_img, RGBImg rgb_img);
 
     void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img);
+
+    YCbCrImg downsamplig(YCbCrImg YCbCr_img);
 
 
 #endif
