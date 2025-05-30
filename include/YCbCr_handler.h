@@ -7,6 +7,7 @@
 
     #include <stdio.h>
     #include <stdlib.h>
+    #include <math.h>
 
 
 /************************************
@@ -33,9 +34,9 @@
     {
         int height;          
         int width;            
-        unsigned char **Y;
-        unsigned char **Cb;
-        unsigned char **Cr;
+        double **Y;
+        double **Cb;
+        double **Cr;
     } YCbCrImg;
 
 /************************************
@@ -48,6 +49,14 @@
 
     // Função que desaloca corretamente a matriz RGB contida na estrutura
     void liberar_RGB(RGBImg rgb_img);
+
+    YCbCrImg alocar_YCbCr(int width, int height);
+
+    void liberar_YCbCr(YCbCrImg YCbCr_img);
+
+    void RGB2YCbCr(YCbCrImg YCbCr_img, RGBImg rgb_img);
+
+    void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img);
 
 
 #endif

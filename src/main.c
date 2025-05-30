@@ -16,51 +16,6 @@ João Pedro Mori Machado
 #include "../include/file_handler.h"
 #include "../include/YCbCr_handler.h"
 
-void RBG2YCbCr(unsigned char **R, unsigned char **G, unsigned char **B, 
-    unsigned char **Y, unsigned char **Cb, unsigned char **Cr, int n_linhas, int n_colunas){
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Y[i][j] = (0.299 * R[i][j]) + (0.587 * G[i][j]) + (0.144 * B[i][j]);
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Cb[i][j] = 0.564 * (B[i][j] - Y[i][j]);
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Cr[i][j] = 0.713 * (R[i][j] - Y[i][j]);
-            }
-        }
-
-}
-
-void YCbCr2RGB(unsigned char **R, unsigned char **G, unsigned char **B, 
-    unsigned char **Y, unsigned char **Cb, unsigned char **Cr, int n_linhas, int n_colunas){
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                R[i][j] = (Y[i][j] + (1.402 * Cr[i][j]) ) ;
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                G[i][j] = (Y[i][j] - (0.344 * Cb[i][j]) - (0.714 * Cr[i][j]));
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                B[i][j] = (Y[i][j] + (1.772 * Cb[i][j]) ) ;
-            }
-        }
-}
-
 
 
 int main() 
@@ -83,12 +38,25 @@ int main()
         fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
         ler_bmp_rgb(input_file, rgb_img);
 
+        YCbCrImg YCbCr_img = alocar_YCbCr(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+        RGB2YCbCr(YCbCr_img, rgb_img);
+
+        RGBImg rgb_img2 = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+        YCbCr2RGB(YCbCr_img, rgb_img2);
+
+       
+
+
     fclose(input_file);
 
     exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_img);
     printf("Imagem salva como imagem_saida.bmp\n");
 
     liberar_RGB(rgb_img);
+    liberar_RGB(rgb_img2);
+    liberar_YCbCr(YCbCr_img);
 
     return 0;
 }
