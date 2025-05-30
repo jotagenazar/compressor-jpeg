@@ -36,18 +36,19 @@
 * GLOBAL FUNCTIONS
 ************************************/
 
-    FILE *abrir_arquivo(char *nome_arquivo, char *modo)
+    FILE *abrir_arquivo(char *filename, char *modo)
     {
-        FILE *arquivo;
+        FILE *file;
 
-        arquivo = fopen(nome_arquivo, modo);
-        if (arquivo == NULL){
-            printf("Erro ao abrir arquivo %s\n", nome_arquivo);
+        file = fopen(filename, modo);
+        if (file == NULL){
+            printf("Erro ao abrir arquivo %s\n", filename);
             exit(1);
         }
 
-        return arquivo;
+        return file;
     }
+
 
     BmpFileHeader ler_bmp_file_header(FILE *bmp_file)
     {
@@ -61,6 +62,7 @@
 
         return bmp_file_header;
     }
+
 
     BmpInfoHeader ler_bmp_info_header(FILE *bmp_file) 
     {
@@ -81,14 +83,35 @@
         return bmp_info_header;
     }
 
-    void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
-                        unsigned char **R, unsigned char **G, unsigned char **B) 
+
+    void ler_bmp_rgb(FILE *bmp_file, RGBImg rgb_img)
     {
-        FILE *output_file = fopen(nome_arquivo, "wb");
-        if (output_file == NULL) {
-            printf("Erro ao criar arquivo de saída.\n");
-            exit(1);
+        int padding = (4 - (rgb_img.width * 3) % 4) % 4;
+
+        for (int i = rgb_img.height - 1; i >= 0; i--) 
+        {
+            for (int j = 0; j < rgb_img.width; j++) 
+            {
+                unsigned char b, g, r;
+
+                fread(&b, sizeof(unsigned char), 1, bmp_file);
+                fread(&g, sizeof(unsigned char), 1, bmp_file);
+                fread(&r, sizeof(unsigned char), 1, bmp_file);
+
+                rgb_img.B[i][j] = b;
+                rgb_img.G[i][j] = g;
+                rgb_img.R[i][j] = r;
+            }
+
+            fseek(bmp_file, padding, SEEK_CUR); // descartar bytes de padding no final da linha
         }
+    }
+
+
+    void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
+                        RGBImg rgb_img) 
+    {
+        FILE *output_file = abrir_arquivo(nome_arquivo, "wb");
 
         int width = info.biWidth;
         int height = info.biHeight;
@@ -120,9 +143,11 @@
             for (int j = 0; j < width; j++) 
             {
                 unsigned char pixel[3];
-                pixel[0] = B[i][j]; // azul
-                pixel[1] = G[i][j]; // verde
-                pixel[2] = R[i][j]; // vermelho
+
+                pixel[0] = rgb_img.B[i][j]; // azul
+                pixel[1] = rgb_img.G[i][j]; // verde
+                pixel[2] = rgb_img.R[i][j]; // vermelho
+                
                 fwrite(pixel, sizeof(unsigned char), 3, output_file);
             }
 

@@ -65,56 +65,30 @@ void YCbCr2RGB(unsigned char **R, unsigned char **G, unsigned char **B,
 
 int main() 
 {   
-    FILE *arquivo;
-    char nome_arq_img[100];
-    scanf("%s", nome_arq_img);
-    arquivo = abrir_arquivo(nome_arq_img, "rb");
+    FILE *input_file;
+    char input_filename[100];
+    scanf("%s", input_filename);
 
-    // leitura e importação do header do arquivo e do header da imagem
-    BmpFileHeader bmp_file_header = ler_bmp_file_header(arquivo);
-    BmpInfoHeader bmp_info_header = ler_bmp_info_header(arquivo);
+    input_file = abrir_arquivo(input_filename, "rb");
 
-    printf("file header sizer = %d \n", bmp_file_header.bfSize);
-    printf("bmp info header size = %d \n", bmp_info_header.biSize);
+        // leitura e importação do header do arquivo e do header da imagem
+        BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+        BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
 
-    /* ------------------------------------------   */
+        printf("file header sizer = %d \n", bmp_file_header.bfSize);
+        printf("bmp info header size = %d \n", bmp_info_header.biSize);
 
-    unsigned char **R, **G, **B;
+        RGBImg rgb_img = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
 
-    int width = bmp_info_header.biWidth;
-    int height = bmp_info_header.biHeight;
-    int padding = (4 - (width * 3) % 4) % 4; // Cada linha deve ser múltipla de 4 bytes
+        fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
+        ler_bmp_rgb(input_file, rgb_img);
 
-    // Alocar memória para as matrizes
-    R = malloc(height * sizeof(unsigned char*));
-    G = malloc(height * sizeof(unsigned char*));
-    B = malloc(height * sizeof(unsigned char*));
-    for (int i = 0; i < height; i++) {
-        R[i] = malloc(width * sizeof(unsigned char));
-        G[i] = malloc(width * sizeof(unsigned char));
-        B[i] = malloc(width * sizeof(unsigned char));
-    }
+    fclose(input_file);
 
-    // Posiciona o ponteiro para o início dos dados da imagem
-    fseek(arquivo, bmp_file_header.bfOffBits, SEEK_SET);
-
-    // Leitura linha por linha, de baixo para cima (formato BMP)
-    for (int i = height - 1; i >= 0; i--) {
-        for (int j = 0; j < width; j++) {
-            unsigned char b, g, r;
-            fread(&b, sizeof(unsigned char), 1, arquivo);
-            fread(&g, sizeof(unsigned char), 1, arquivo);
-            fread(&r, sizeof(unsigned char), 1, arquivo);
-            B[i][j] = b;
-            G[i][j] = g;
-            R[i][j] = r;
-        }
-        // Descartar bytes de padding no final da linha
-        fseek(arquivo, padding, SEEK_CUR);
-    }
-
-    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, R, G, B);
+    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_img);
     printf("Imagem salva como imagem_saida.bmp\n");
+
+    liberar_RGB(rgb_img);
 
     return 0;
 }

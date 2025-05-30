@@ -7,6 +7,7 @@
 
     #include <stdio.h>
     #include <stdlib.h>
+    #include "YCbCr_handler.h"
 
 
 /************************************
@@ -50,20 +51,31 @@
 * GLOBAL FUNCTION PROTOTYPES
 *************************************/
 
-    // Função de abertura de arquivos de acordo com o modo especificado
-    // retorna o ponteiro para o arquivo aberto
+    // Função de abertura de arquivos de acordo com o modo especificado.
+    // Retorna o ponteiro para o arquivo aberto
     FILE *abrir_arquivo(char *nome_arquivo, char *modo);
 
-    // Função que escreve o cabeçalho de um arquivo bmp a ser lido nos campos da struct correspondente
-    // retorna a struct bmpfileheader com as informações preenchidas
+
+    // Função que escreve o cabeçalho de um arquivo bmp a ser lido nos campos da struct correspondente.
+    // Retorna a struct bmpfileheader com as informações preenchidas.
+    // Supõe que o ponteiro já aponta a localização do file_header no arquivo (SEEK_SET)
     BmpFileHeader ler_bmp_file_header(FILE *bmp_file);
 
-    // Função que escreve o cabeçalho da imagem presente no arquivo nos campos da struct correspondene
-    // retorna a struct bmpinfoheader com as informações preenchidas
+
+    // Função que escreve o cabeçalho da imagem presente no arquivo nos campos da struct correspondente.
+    // Retorna a struct bmpinfoheader com as informações preenchidas.
+    // Supõe que o ponteiro já aponta a localização do file_header no arquivo (SEEK_SET + sizeof(BmpFileHeader))
     BmpInfoHeader ler_bmp_info_header(FILE *bmp_file);
+
+
+    // Função que escreve a matriz RGB, contida no arquivo e nas estruturas BmpFileHeader e BmpInfoHeader, na estrutura
+    // RGBImg, todos passados como parâmetro.
+    // Supõe que o ponteiro já aponta a localização do file_header no arquivo (SEEK_SET + BmpFileHeader.btOffBits)
+    void ler_bmp_rgb(FILE *bmp_file, RGBImg rgb_img);
+    
 
     // Função que exporta a matriz de cores e as informações da imagem em um arquivo bmp
     void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
-                        unsigned char **R, unsigned char **G, unsigned char **B);
+                        RGBImg rgb_img);
 
 #endif
