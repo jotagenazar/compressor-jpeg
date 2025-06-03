@@ -8,6 +8,28 @@
 * EXTERN VARIABLES
 ************************************/
 
+const double C[8][8] = {  
+    {0.354,  0.354,  0.354,  0.354,  0.354,  0.354,  0.354,  0.354},
+    {0.490,  0.416,  0.278,  0.098, -0.098, -0.278, -0.416, -0.490},
+    {0.462,  0.191, -0.191, -0.462, -0.462, -0.191,  0.191,  0.462},
+    {0.416, -0.098, -0.490, -0.278,  0.278,  0.490,  0.098, -0.416},
+    {0.354, -0.354, -0.354,  0.354,  0.354, -0.354, -0.354,  0.354},
+    {0.278, -0.490,  0.098,  0.416, -0.416, -0.098,  0.490, -0.278},
+    {0.191, -0.462,  0.462, -0.191, -0.191,  0.462, -0.462,  0.191},
+    {0.098, -0.278,  0.416, -0.490,  0.490, -0.416,  0.278, -0.098}
+};
+
+double const Ct[8][8] = {
+    { 0.354,  0.490,  0.462,  0.416,  0.354,  0.278,  0.191,  0.098 },
+    { 0.354,  0.416,  0.191, -0.098, -0.354, -0.490, -0.462, -0.278 },
+    { 0.354,  0.278, -0.191, -0.490, -0.354,  0.098,  0.462,  0.416 },
+    { 0.354,  0.098, -0.462, -0.278,  0.354,  0.416, -0.191, -0.490 },
+    { 0.354, -0.098, -0.462,  0.278,  0.354, -0.416, -0.191,  0.490 },
+    { 0.354, -0.278, -0.191,  0.490, -0.354, -0.098,  0.462, -0.416 },
+    { 0.354, -0.416,  0.191,  0.098, -0.354,  0.490, -0.462,  0.278 },
+    { 0.354, -0.490,  0.462, -0.416,  0.354, -0.278,  0.191, -0.098 }
+};
+
 /************************************
 * PRIVATE MACROS AND DEFINES
 ************************************/
@@ -87,6 +109,27 @@
             YCbCr_img.Y[i] = malloc(YCbCr_img.width * sizeof(double));
             YCbCr_img.Cb[i] = malloc(YCbCr_img.width * sizeof(double));
             YCbCr_img.Cr[i] = malloc(YCbCr_img.width * sizeof(double));
+        }
+
+        return YCbCr_img;
+    }
+
+    YCbCrImg alocar_YCbCr_reduzida(int width, int height)
+    {
+        YCbCrImg YCbCr_img;
+
+        YCbCr_img.height = height;
+        YCbCr_img.width = width;
+
+        YCbCr_img.Y = malloc(YCbCr_img.height * sizeof(double*));
+        YCbCr_img.Cb = malloc((YCbCr_img.height/2) * sizeof(double*));
+        YCbCr_img.Cr = malloc((YCbCr_img.height/2) * sizeof(double*));
+
+        for (int i = 0; i < height; i++) 
+        {
+            YCbCr_img.Y[i] = malloc(YCbCr_img.width * sizeof(double));
+            YCbCr_img.Cb[i] = malloc((YCbCr_img.width/2) * sizeof(double));
+            YCbCr_img.Cr[i] = malloc((YCbCr_img.width/2) * sizeof(double));
         }
 
         return YCbCr_img;
@@ -203,7 +246,7 @@
 
             for (int j = 0; j < width_pad; j++) {
                 // Copia a matriz e colocando padding se precisar
-                 int i_orig = i;
+                int i_orig = i;
                 int j_orig = j;
                 if (i >= height) i_orig = height - 1;
                 if (j >= width) j_orig = width - 1;
@@ -267,6 +310,17 @@
 
         // Return
         return YCbCr_img_reduced; 
+    }
+
+
+    double** DCT (double **matriz_entrada, int height, int width)
+    {
+
+
+
+
+
+
     }
 
 

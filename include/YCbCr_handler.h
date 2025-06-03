@@ -14,6 +14,8 @@
 * MACROS AND DEFINES
 *************************************/
 
+extern const double C[8][8]; 
+extern const double Ct[8][8];
 
 /************************************
 * TYPEDEFS AND STRUCTS
@@ -52,6 +54,8 @@
 
     YCbCrImg alocar_YCbCr(int width, int height);
 
+    YCbCrImg alocar_YCbCr_reduzida(int width, int height);
+
     void liberar_YCbCr(YCbCrImg YCbCr_img);
 
     void liberar_YCbCr_reduced(YCbCrImg YCbCr_img);
@@ -61,6 +65,8 @@
     void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img);
 
     YCbCrImg downsamplig(YCbCrImg YCbCr_img);
+
+    double** DCT (double **matriz_entrada, int height, int width);
 
 
 #endif
