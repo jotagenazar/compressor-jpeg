@@ -66,7 +66,11 @@ extern const double Ct[8][8];
 
     YCbCrImg downsamplig(YCbCrImg YCbCr_img);
 
-    double** DCT (double **matriz_entrada, int height, int width);
+    void aplicar_DCT_bloco(double B[8][8], double F[8][8]);
+
+    double** aplicar_DCT(double** entrada, int altura, int largura);
+
+    YCbCrImg executar_DCT(YCbCrImg entrada);
 
 
 #endif
