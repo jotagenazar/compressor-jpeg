@@ -382,7 +382,7 @@ double** aplicar_DCT(double** entrada, int altura, int largura)
 
 YCbCrImg executar_DCT(YCbCrImg entrada)
 {
-    YCbCrImg transformado = alocar_YCbCr_reduzida(entrada.width, entrada.height);
+    YCbCrImg transformado;
 
     transformado.width = entrada.width;
     transformado.height = entrada.height;
@@ -393,5 +393,129 @@ YCbCrImg executar_DCT(YCbCrImg entrada)
 
     return transformado;
 }
+
+void aplicar_IDCT_bloco(double F[8][8], double B[8][8])
+{
+    double temp[8][8];
+
+    // temp = Ct × F
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            temp[i][j] = 0.0;
+            for (int k = 0; k < 8; k++) {
+                temp[i][j] += Ct[i][k] * F[k][j];
+            }
+        }
+    }
+
+    // B = temp × C
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            B[i][j] = 0.0;
+            for (int k = 0; k < 8; k++) {
+                B[i][j] += temp[i][k] * C[k][j];
+            }
+        }
+    }
+}
+
+double** aplicar_IDCT(double** entrada, int altura, int largura)
+{
+    double** saida = malloc(altura * sizeof(double*));
+    for (int i = 0; i < altura; i++) {
+        saida[i] = malloc(largura * sizeof(double));
+    }
+
+    double F[8][8];
+    double B[8][8];
+
+    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
+
+            // Copia o bloco transformado
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    F[i][j] = entrada[i_bloco + i][j_bloco + j];
+                }
+            }
+
+            // Aplica a IDCT
+            aplicar_IDCT_bloco(F, B);
+
+            // Copia o resultado para a matriz final
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    saida[i_bloco + i][j_bloco + j] = B[i][j];
+                }
+            }
+        }
+    }
+
+    return saida;
+}
+
+YCbCrImg executar_IDCT(YCbCrImg entrada)
+{
+    YCbCrImg reconstruido;
+
+    reconstruido.width = entrada.width;
+    reconstruido.height = entrada.height;
+
+    reconstruido.Y  = aplicar_IDCT(entrada.Y, entrada.height, entrada.width);
+    reconstruido.Cb = aplicar_IDCT(entrada.Cb, entrada.height/2, entrada.width/2);
+    reconstruido.Cr = aplicar_IDCT(entrada.Cr, entrada.height/2, entrada.width/2);
+
+    return reconstruido;
+}
+
+YCbCrImg upsampling(YCbCrImg reduzido)
+{
+    YCbCrImg completo;
+
+    completo.width = reduzido.width;
+    completo.height = reduzido.height;
+
+    // Alocar Y (mesmo tamanho)
+    completo.Y = malloc(completo.height * sizeof(double*));
+    for (int i = 0; i < completo.height; i++) {
+        completo.Y[i] = malloc(completo.width * sizeof(double));
+        for (int j = 0; j < completo.width; j++) {
+            completo.Y[i][j] = reduzido.Y[i][j];
+        }
+    }
+
+    // Alocar Cb e Cr (tamanho cheio)
+    completo.Cb = malloc(completo.height * sizeof(double*));
+    completo.Cr = malloc(completo.height * sizeof(double*));
+    for (int i = 0; i < completo.height; i++) {
+        completo.Cb[i] = malloc(completo.width * sizeof(double));
+        completo.Cr[i] = malloc(completo.width * sizeof(double));
+    }
+
+    // Preencher Cb e Cr com replicação de blocos 2x2
+    for (int i = 0; i < reduzido.height/2; i++) {
+        for (int j = 0; j < reduzido.width/2; j++) {
+            double cb_val = reduzido.Cb[i][j];
+            double cr_val = reduzido.Cr[i][j];
+
+            int i2 = i * 2;
+            int j2 = j * 2;
+
+            completo.Cb[i2][j2]     = cb_val;
+            completo.Cb[i2+1][j2]   = cb_val;
+            completo.Cb[i2][j2+1]   = cb_val;
+            completo.Cb[i2+1][j2+1] = cb_val;
+
+            completo.Cr[i2][j2]     = cr_val;
+            completo.Cr[i2+1][j2]   = cr_val;
+            completo.Cr[i2][j2+1]   = cr_val;
+            completo.Cr[i2+1][j2+1] = cr_val;
+        }
+    }
+
+    return completo;
+}
+
+
 
 

@@ -72,5 +72,13 @@ extern const double Ct[8][8];
 
     YCbCrImg executar_DCT(YCbCrImg entrada);
 
+    void aplicar_IDCT_bloco(double F[8][8], double B[8][8]);
+
+    double** aplicar_IDCT(double** entrada, int altura, int largura);
+
+    YCbCrImg executar_IDCT(YCbCrImg entrada);
+
+    YCbCrImg upsampling(YCbCrImg reduzido);
+
 
 #endif
