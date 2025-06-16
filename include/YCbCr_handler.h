@@ -17,6 +17,9 @@
 extern const double C[8][8]; 
 extern const double Ct[8][8];
 
+extern const int Q_Y[8][8];
+extern const int Q_C[8][8];
+
 /************************************
 * TYPEDEFS AND STRUCTS
 *************************************/
@@ -79,6 +82,13 @@ extern const double Ct[8][8];
     YCbCrImg executar_IDCT(YCbCrImg entrada);
 
     YCbCrImg upsampling(YCbCrImg reduzido);
+
+    void quantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
+
+    double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
+
+    YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k);
+
 
 
 #endif
