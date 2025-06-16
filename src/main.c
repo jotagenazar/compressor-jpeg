@@ -49,20 +49,20 @@ int main()
         YCbCrImg YCbCr_freq = executar_DCT(YCbCr_img_reduced);
         liberar_YCbCr_reduced(YCbCr_img_reduced);
 
-        printf("executei a YCbCr \n");
-
-        YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_freq);
+        YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 1.0);
         liberar_YCbCr_reduced(YCbCr_freq);
+
+        YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
+        liberar_YCbCr_reduced(YCbCr_quantizado);
+
+        YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_desquantizado);
+        liberar_YCbCr_reduced(YCbCr_desquantizado);
 
         YCbCrImg YCbCr_up = upsampling(YCbCr_IDCT);
         liberar_YCbCr_reduced(YCbCr_IDCT);
 
         RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
 
-        printf("Aloquei a nova RGB \n");
-        printf("Dimensões antes de YCbCr2RGB:\n");
-        printf("YCbCr_up: height=%d, width=%d\n", YCbCr_up.height, YCbCr_up.width);
-        printf("rgb_final: height=%d, width=%d\n", rgb_final.height, rgb_final.width);
 
         YCbCr2RGB(YCbCr_up,  rgb_final);
 
