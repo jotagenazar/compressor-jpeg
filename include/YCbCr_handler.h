@@ -89,6 +89,12 @@ extern const int Q_C[8][8];
 
     YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k);
 
+    void desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
+
+    double** desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
+
+    YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
+
 
 
 #endif

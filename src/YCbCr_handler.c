@@ -598,4 +598,62 @@ YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
     return quantizado;
 }
 
+void desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
+{
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            bloco[i][j] = bloco[i][j] * Q[i][j] * k;
+        }
+    }
+}
 
+double** desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
+{
+    double** saida = malloc(altura * sizeof(double*));
+    for (int i = 0; i < altura; i++) {
+        saida[i] = malloc(largura * sizeof(double));
+    }
+
+    double bloco[8][8];
+
+    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
+
+            // Copia o bloco original
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    bloco[i][j] = matriz[i_bloco + i][j_bloco + j];
+                }
+            }
+
+            // Aplica desquantização
+            desquantizar_bloco(bloco, Q, k);
+
+            // Copia de volta
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    matriz[i_bloco + i][j_bloco + j] = bloco[i][j];
+                }
+            }
+        }
+    }
+
+    return saida;
+}
+
+YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k)
+{
+    YCbCrImg desquantizado;
+
+    desquantizado.height = img_dct.height;
+    desquantizado.width = img_dct.width;
+
+    // Canal Y usa matriz Q_Y
+    desquantizado.Y = desquantizar_matriz(img_dct.Y, img_dct.height, img_dct.width, Q_Y, k);
+
+    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
+    desquantizado.Cb = desquantizar_matriz(img_dct.Cb, img_dct.height / 2, img_dct.width / 2, Q_C, k);
+    desquantizado.Cr = desquantizar_matriz(img_dct.Cr, img_dct.height / 2, img_dct.width / 2, Q_C, k);
+
+    return desquantizado;
+}
