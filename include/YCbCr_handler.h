@@ -8,6 +8,7 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include <math.h>
+    #include <stdint.h>
 
 
 /************************************
@@ -19,6 +20,10 @@ extern const double Ct[8][8];
 
 extern const int Q_Y[8][8];
 extern const int Q_C[8][8];
+
+extern const int zigzag[64][2];
+
+
 
 /************************************
 * TYPEDEFS AND STRUCTS
@@ -43,6 +48,21 @@ extern const int Q_C[8][8];
         double **Cb;
         double **Cr;
     } YCbCrImg;
+
+
+    typedef struct 
+    {
+        int zeros; //Número de zeros seguidos
+        int coeficiente; //Valor não-zero
+
+    } Par_RLE;
+
+    typedef struct {
+        unsigned short bits; // código Huffman (até 16 bits)
+        int tamanho;         // quantos bits esse código tem
+    } HuffmanCode;
+
+    extern const HuffmanCode HUFFMAN_DC[12];
 
 /************************************
 * GLOBAL FUNCTION PROTOTYPES
@@ -95,6 +115,13 @@ extern const int Q_C[8][8];
 
     YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 
+    int* aplicar_zigzag(double bloco[8][8]);
+
+    int calcular_diferenca_dc(int atual, int anteior);
+
+    int aplicar_rle_ac(int vetor[64], Par_RLE* pares);
+
+    int codificar_bloco(int bloco[8][8], int dc_anterior, int* diferenca_dc, Par_RLE* ac_pares);
 
 
 #endif
