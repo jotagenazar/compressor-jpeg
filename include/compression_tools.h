@@ -90,7 +90,7 @@ int get_category(int coeficiente); // Usa a tabela 2 para me retornar a categori
 
 void get_mantissa(int coeficiente, int categoria, char* mantissa_str); 
 
-void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida);
+void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, double k);
 
 // ! -----------------------------------------
    

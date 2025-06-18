@@ -395,13 +395,7 @@ void flush_bits(BitWriter* writer) {
  * @param img_quantizada A imagem YCbCr após a quantização.
  * @param nome_arquivo_saida O nome do arquivo a ser criado.
  */
-void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida) {
-    
-    FILE* arquivo = fopen(nome_arquivo_saida, "wb");
-    if (!arquivo) {
-        printf("Erro ao criar arquivo de saída.\n");
-        return;
-    }
+void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, double k) {
 
     // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
@@ -412,6 +406,9 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arq
 
     double bloco_atual[8][8];
     char mantissa_buffer[17]; // Buffer para a string da mantissa (max 16 bits + \0)
+
+    int divisor = DOWNSAMPLE_DIVISOR; // variavel que indica o divisor das matrizes Cb e Cr caso tenha ocorrido compressao jpeg e consequente downsampling
+    if(k == 0) divisor = 1;
 
     // --- Processa Canal Y (Luminância) ---
     for (int i_bloco = 0; i_bloco < img_quantizada.height; i_bloco += 8) {
@@ -451,8 +448,8 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arq
     // usando dc_anterior_Cb e dc_anterior_Cr.
     // (Lembrando que Cb e Cr têm altura/largura divididas por 2)
     // --- Processa Canal Cb ---
-    for (int i_bloco = 0; i_bloco < img_quantizada.height / 2; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < img_quantizada.width / 2; j_bloco += 8) {
+    for (int i_bloco = 0; i_bloco < img_quantizada.height / divisor; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < img_quantizada.width / divisor; j_bloco += 8) {
             
             // Copia o bloco
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
@@ -485,8 +482,8 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arq
     }
 
     // --- Processa Canal Cr ---
-    for (int i_bloco = 0; i_bloco < img_quantizada.height / 2; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < img_quantizada.width / 2; j_bloco += 8) {
+    for (int i_bloco = 0; i_bloco < img_quantizada.height / divisor; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < img_quantizada.width / divisor; j_bloco += 8) {
             
             // Copia o bloco
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
@@ -521,9 +518,6 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arq
 
     // 2. Finaliza a escrita, escrevendo quaisquer bits restantes no buffer
     flush_bits(&writer);
-
-    fclose(arquivo);
-    printf("Imagem comprimida e salva em %s\n", nome_arquivo_saida);
 }
 
 

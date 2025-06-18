@@ -89,16 +89,8 @@ void ler_bmp_rgb(FILE *bmp_file, RGBImg rgb_img)
 
 }
 
-
-void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
-                    RGBImg rgb_img) 
+void escrever_headers_bmp(FILE *output_file, BmpFileHeader header, BmpInfoHeader info) 
 {
-    FILE *output_file = abrir_arquivo(nome_arquivo, "wb");
-
-    // Cálculo padrão do padding em arquivos bmp, a dimensão especificada para o trabalho garante que o padding será sempre 0
-    int padding = (4 - (info.biWidth * 3) % 4) % 4;
-    unsigned char pad[3] = {0, 0, 0};   // o padding pode possuir até 3 bytes
-
     // Escrita dos headers do arquivo e de info
     fwrite(&header.bfType,      sizeof(unsigned short), 1,  output_file);
     fwrite(&header.bfSize,      sizeof(unsigned int),   1,  output_file);
@@ -117,7 +109,18 @@ void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info
     fwrite(&info.biYPelsPerMeter,   sizeof(int),            1,  output_file);
     fwrite(&info.biClrUsed,         sizeof(unsigned int),   1,  output_file);
     fwrite(&info.biClrImportant,    sizeof(unsigned int),   1,  output_file);
+}
 
+void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
+                    RGBImg rgb_img) 
+{
+    FILE *output_file = abrir_arquivo(nome_arquivo, "wb");
+
+    escrever_headers_bmp(output_file, header, info);
+
+    // Cálculo padrão do padding em arquivos bmp, a dimensão especificada para o trabalho garante que o padding será sempre 0
+    int padding = (4 - (info.biWidth * 3) % 4) % 4;
+    unsigned char pad[3] = {0, 0, 0};   // o padding pode possuir até 3 bytes
 
     // Escrita dos pixels de baixo para cima seguindo o padrão de disposição do bmp
     for (int i = info.biHeight - 1; i >= 0; i--) 

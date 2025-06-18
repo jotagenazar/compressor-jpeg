@@ -46,7 +46,8 @@ int main()
     // variáveis comuns às operações
     char input_filename[100];
     char output_filename[100];
-
+    int input_size;
+    int output_size;
 
     // execução das operações
     switch(op_id)
@@ -71,9 +72,40 @@ int main()
                 fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
                 ler_bmp_rgb(input_file, rgb_img);
 
+                // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
+                fseek(input_file, 0, SEEK_END);
+                input_size = ftell(input_file); 
+
             fclose(input_file);
 
-            // codificação
+            // Criação matriz YCbCr e conversão da matriz RGB lida para ela
+            YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
+            RGB_to_YCbCr(rgb_img, YCbCr_img);
+            liberar_RGB(rgb_img);
+
+            // não houve compressão, o fator k da quantização usado foi 0
+            double k = 0;
+
+            // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
+            FILE *output_file = abrir_arquivo(output_filename, "wb");
+
+                escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
+
+                fwrite(&k, sizeof(double), 1, output_file);
+
+                executar_compressao_entropica(YCbCr_img, output_file, k);
+
+                // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
+                output_size = ftell(output_file); 
+
+            fclose(output_file);
+
+            printf("\nImagem comprimida e salva em %s\n", output_filename);
+
+            double taxa_compressao = (double) input_size / output_size;
+            printf("Taxa de Compressão: %.2lf", taxa_compressao);
+
+            liberar_YCbCr(YCbCr_img);
 
             break;
         }
@@ -86,7 +118,7 @@ int main()
             printf("Nome do arquivo da nova imagem comprimida: ");
             scanf(" %s", output_filename);
 
-             printf("Fator k de compressão da imagem (recomendado: 5): ");
+            printf("Fator k de compressão da imagem (recomendado: 5): ");
             double k;
             scanf(" %lf", &k);
 
@@ -102,6 +134,10 @@ int main()
 
                 fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
                 ler_bmp_rgb(input_file, rgb_img);
+
+                // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
+                fseek(input_file, 0, SEEK_END);
+                input_size = ftell(input_file); 
 
             fclose(input_file);
 
@@ -124,8 +160,25 @@ int main()
             liberar_YCbCr_downsampled(YCbCr_freq);
 
 
-            // Codificação
+            // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
+            FILE *output_file = abrir_arquivo(output_filename, "wb");
 
+                escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
+
+                fwrite(&k, sizeof(double), 1, output_file);
+
+                executar_compressao_entropica(YCbCr_img, output_file, k);
+
+                // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
+                output_size = ftell(output_file); 
+
+            fclose(output_file);
+            
+
+            printf("\nImagem comprimida e salva em %s\n", output_filename);
+
+            double taxa_compressao = (double) input_size / output_size;
+            printf("Taxa de Compressão: %.2lf", taxa_compressao);
 
             liberar_YCbCr_downsampled(YCbCr_quantizado);
 
