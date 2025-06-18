@@ -208,16 +208,14 @@ void TESTE()
     liberar_YCbCr_downsampled(YCbCr_freq);
 
 
-
-
     YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
     liberar_YCbCr_downsampled(YCbCr_quantizado);
 
-    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
-    liberar_YCbCr_downsampled(YCbCr_desquantizado);
+    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_freq);
+    liberar_YCbCr_downsampled(YCbCr_freq);
 
     YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
-    liberar_YCbCr_downsampled(YCbCr_img_downsampled);
+    liberar_YCbCr_downsampled(YCbCr_IDCT);
 
     RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
 
