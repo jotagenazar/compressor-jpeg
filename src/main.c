@@ -15,61 +15,166 @@ João Pedro Mori Machado
 
 #include "../include/file_handler.h"
 #include "../include/YCbCr_handler.h"
+#include "../include/compression_tools.h"
 
-void RBG2YCbCr(unsigned char **R, unsigned char **G, unsigned char **B, 
-    unsigned char **Y, unsigned char **Cb, unsigned char **Cr, int n_linhas, int n_colunas){
 
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Y[i][j] = (0.299 * R[i][j]) + (0.587 * G[i][j]) + (0.144 * B[i][j]);
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Cb[i][j] = 0.564 * (B[i][j] - Y[i][j]);
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                Cr[i][j] = 0.713 * (R[i][j] - Y[i][j]);
-            }
-        }
-
-}
-
-void YCbCr2RGB(unsigned char **R, unsigned char **G, unsigned char **B, 
-    unsigned char **Y, unsigned char **Cb, unsigned char **Cr, int n_linhas, int n_colunas){
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                R[i][j] = (Y[i][j] + (1.402 * Cr[i][j]) ) ;
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                G[i][j] = (Y[i][j] - (0.344 * Cb[i][j]) - (0.714 * Cr[i][j]));
-            }
-        }
-
-        for (int i=0; i < n_linhas; i++){
-            for (int j=0; j < n_colunas; j++){
-                B[i][j] = (Y[i][j] + (1.772 * Cb[i][j]) ) ;
-            }
-        }
-}
-
+void TESTE();
 
 
 int main() 
 {   
-    FILE *input_file;
-    char input_filename[100];
-    scanf("%s", input_filename);
+    // jogando a main pro teste antigo, quanto terminar apagamos essa linha
+    TESTE();
+    return 0;
 
-    input_file = abrir_arquivo(input_filename, "rb");
+
+    // impressão de opções
+    printf("\n\nEscolha a operaçao que deseja realizar:\n\n");
+    printf("[1] Comprimir uma imagem *.bmp sem perdas\n");
+    printf("[2] Comprimir imagem *.bmp com perdas a partir de um valor k\n");
+    printf("[3] Descomprimir uma imagem comprimida pelo programa\n\n");
+    printf("[0] Sair\n\n");
+
+
+    // escolha operação
+    int op_id;
+    printf("Operação: ");
+    scanf(" %d", &op_id);
+    printf("\n\n");
+
+
+    // variáveis comuns às operações
+    char input_filename[100];
+    char output_filename[100];
+
+
+    // execução das operações
+    switch(op_id)
+    {
+        case 1: //comprimir imagem lossless
+        {
+            printf("Caminho da imagem *.bmp a ser comprimida: ");
+            scanf(" %s", input_filename);
+
+            printf("Nome do arquivo da nova imagem comprimida: ");
+            scanf(" %s", output_filename);
+
+            // Leitura do arquivo bmp para as structs de header e matriz RGB
+            FILE *input_file = abrir_arquivo(input_filename, "rb");
+
+                // leitura e importação do header do arquivo e do header da imagem
+                BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+                BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
+
+                RGBImg rgb_img = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+                fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
+                ler_bmp_rgb(input_file, rgb_img);
+
+            fclose(input_file);
+
+            // codificação
+
+            break;
+        }
+
+        case 2: //comprimir imagem lossy
+        {
+            printf("Caminho da imagem *.bmp a ser comprimida: ");
+            scanf(" %s", input_filename);
+
+            printf("Nome do arquivo da nova imagem comprimida: ");
+            scanf(" %s", output_filename);
+
+             printf("Fator k de compressão da imagem (recomendado: 5): ");
+            double k;
+            scanf(" %lf", &k);
+
+
+            // Leitura do arquivo bmp para as structs de header e matriz RGB
+            FILE *input_file = abrir_arquivo(input_filename, "rb");
+
+                // leitura e importação do header do arquivo e do header da imagem
+                BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+                BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
+
+                RGBImg rgb_img = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+                fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
+                ler_bmp_rgb(input_file, rgb_img);
+
+            fclose(input_file);
+
+
+            // Criação matriz YCbCr e conversão da matriz RGB lida para ela
+            YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
+            RGB_to_YCbCr(rgb_img, YCbCr_img);
+            liberar_RGB(rgb_img);
+
+            // Criação YCbCr downsampled
+            YCbCrImg YCbCr_img_downsampled = downsample_YCbCr(YCbCr_img);
+            liberar_YCbCr(YCbCr_img);
+
+            // Aplicação transformação DCT na YCbCr
+            YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
+            liberar_YCbCr_downsampled(YCbCr_img_downsampled);
+
+            // Quantização da imagem YCbCr no domínio das frequencias
+            YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, k);
+            liberar_YCbCr_downsampled(YCbCr_freq);
+
+
+            // Codificação
+
+
+            liberar_YCbCr_downsampled(YCbCr_quantizado);
+
+            break;
+        }
+
+
+        case 3: // descomprimir imagem
+        {
+            printf("Caminho da imagem comprimida a ser descomprimida: ");
+            scanf(" %s", input_filename);
+
+            printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
+            scanf(" %s", output_filename);
+
+
+            // Codificação
+
+            break;
+        }
+
+
+        case 0: // sair do programa
+        {
+            return 0;
+            break;
+        }
+
+
+        default:
+        {
+            printf("\nO valor de seleção da operação digitado é inválido.\n");
+            break;
+        }
+    }
+
+    return 0;
+}
+
+
+
+void TESTE()
+{   
+    char input_filename[100];
+    printf("Caminho da imagem *.bmp a ser comprimida: ");
+    scanf(" %s", input_filename);
+
+    // Leitura do arquivo bmp para as structs de header e matriz RGB
+     FILE *input_file = abrir_arquivo(input_filename, "rb");
 
         // leitura e importação do header do arquivo e do header da imagem
         BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
@@ -85,10 +190,40 @@ int main()
 
     fclose(input_file);
 
-    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_img);
-    printf("Imagem salva como imagem_saida.bmp\n");
-
+    // Criação matriz YCbCr e conversão da matriz RGB lida para ela
+    YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
+    RGB_to_YCbCr(rgb_img, YCbCr_img);
     liberar_RGB(rgb_img);
 
-    return 0;
+    // Criação YCbCr downsampled
+    YCbCrImg YCbCr_img_downsampled = downsample_YCbCr(YCbCr_img);
+    liberar_YCbCr(YCbCr_img);
+
+    // Aplicação transformação DCT na YCbCr
+    YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
+    liberar_YCbCr_downsampled(YCbCr_img_downsampled);
+
+    // Quantização da imagem YCbCr no domínio das frequencias
+    YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 1.0);
+    liberar_YCbCr_downsampled(YCbCr_freq);
+
+
+    YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
+    liberar_YCbCr_downsampled(YCbCr_quantizado);
+
+    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_freq);
+    liberar_YCbCr_downsampled(YCbCr_freq);
+
+    YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
+    liberar_YCbCr_downsampled(YCbCr_IDCT);
+
+    RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+
+    YCbCr_to_RGB(YCbCr_up,  rgb_final);
+
+    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
+    printf("Imagem salva como imagem_saida.bmp\n");
+
+    liberar_RGB(rgb_final);
+    liberar_YCbCr(YCbCr_up);
 }
