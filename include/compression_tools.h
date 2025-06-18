@@ -27,6 +27,9 @@ compressão JPEG de imagens YCbCr no domínio das frequências e funções de co
 
 extern const int zigzag[64][2];
 
+extern const char* huffman_dc_lum_codes[12];
+
+extern const char* huffman_ac_lum_codes[16][11];
 
 /************************************
 * TYPEDEFS AND STRUCTS
@@ -39,13 +42,20 @@ typedef struct
 
 } Par_RLE;
 
+typedef  struct{
+
+    int DC_dif; // Diferenca para o ultima valor de alta frequencia
+    Par_RLE vetor_par_rle[64]; //vetor que guardas as trincas RLE. Cada trinca vai ser lida para saber como escrever o binario
+    int qtd_pares;
+    
+} BLOCO_CODIFICADO;
 
 typedef struct {
-    unsigned short bits; // código Huffman (até 16 bits)
-    int tamanho;         // quantos bits esse código tem
-} HuffmanCode;
+    unsigned char byte_buffer; // O byte que está sendo montado
+    int bit_count;             // Quantos bits já estão no buffer
+    FILE* output_file;         // O arquivo de saída
+} BitWriter;
 
-extern const HuffmanCode HUFFMAN_DC[12];
 
 
 /************************************
@@ -66,12 +76,19 @@ YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 
 int* aplicar_zigzag(double bloco[8][8]);
 
-int calcular_diferenca_dc(int atual, int anteior);
+// ! até aqui tudo certo. Novas funçoes a abaixo
 
-int aplicar_rle_ac(int vetor[64], Par_RLE* pares);
+int codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida); // Pega os 63 valores de AC e cria os pares RLE
 
-int codificar_bloco(int bloco[8][8], int dc_anterior, int* diferenca_dc, Par_RLE* ac_pares);
+BLOCO_CODIFICADO codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_anterior); //
 
-    
+int get_category(int coeficiente); // Usa a tabela 2 para me retornar a categoria do coeficiente
+
+void get_mantissa(int coeficiente, int categoria, char* mantissa_str); 
+
+void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida);
+
+// ! -----------------------------------------
+   
 
 #endif
