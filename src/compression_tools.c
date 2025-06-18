@@ -44,6 +44,8 @@ const int zigzag[64][2] = { // Matriz para acelerar o preenchimento do vetor na 
     {6,5}, {7,4}, {7,5}, {6,6}, {5,7}, {6,7}, {7,6}, {7,7}
 };
 
+// * essa é a tabela 3. 
+// TODO: VOLTAR AQUI E PENSAR SE VAMOS USAR ELA ASSIM
 // Códigos de prefixo Huffman para as categorias dos coeficientes DC (Luminância)
 const char* huffman_dc_lum_codes[12] = {
     "010",      // Categoria 0
@@ -60,6 +62,7 @@ const char* huffman_dc_lum_codes[12] = {
     "111111110" // Categoria B (11) - Não está na sua tabela, mas completando o padrão
 };
 
+// TODO: Revisar se a tabela está correta. Me parece que não
 // Códigos de prefixo Huffman para os coeficientes AC (Luminância)
 // Formato: huffman_ac_lum_codes[qtde_zeros][categoria]
 // Categoria 0 é o EOB (End of Block)
@@ -255,6 +258,7 @@ int* aplicar_zigzag(double bloco[8][8])
 
 // ! até aqui tudo certo. Novas funçoes a abaixo
 
+// Pega os 63 valores do vetor pós zigzag e forma os pares RLE
 int codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida) {
     int qtd_pares = 0;
     int zero_count = 0;
@@ -306,6 +310,7 @@ BLOCO_CODIFICADO codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_
     return resultado;
 }
 
+// Implementacao da tabela 2 em codigo
 int get_category(int coeficiente) 
 {
     // A categoria depende do valor absoluto do coeficiente
@@ -329,6 +334,7 @@ int get_category(int coeficiente)
     return -1; // Valor de erro
 }
 
+// Função para escrever o meu numero. Le o coeficiente que é o numero, verifica a categoria que ele pertence e salva no mantissa_str
 // Função para gerar a string da mantissa
 void get_mantissa(int coeficiente, int categoria, char* mantissa_str) 
 {
