@@ -391,21 +391,23 @@ void flush_bits(BitWriter* writer) {
 }
 
 /**
- * @brief Executa todo o processo de codificação entrópica para uma imagem e escreve o bitstream.
- * @param img_quantizada A imagem YCbCr após a quantização.
- * @param nome_arquivo_saida O nome do arquivo a ser criado.
+ * @brief Executa todo o processo de codificação entrópica para uma imagem e escreve o bitstream final.
+ * Processa os componentes Y, Cb e Cr, gerando o arquivo binário comprimido.
+ * @param img_quantizada A estrutura YCbCrImg com os dados após a quantização.
+ * @param nome_arquivo_saida O nome do arquivo a ser criado (ex: "imagem.minhajpeg").
  */
 void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida) {
     
     FILE* arquivo = fopen(nome_arquivo_saida, "wb");
     if (!arquivo) {
-        printf("Erro ao criar arquivo de saída.\n");
+        printf("Erro critico: Nao foi possivel criar o arquivo de saida '%s'.\n", nome_arquivo_saida);
         return;
     }
 
     // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
     
+    // Variáveis de controle para a codificação diferencial de cada componente
     int dc_anterior_Y = 0;
     int dc_anterior_Cb = 0;
     int dc_anterior_Cr = 0;
@@ -413,117 +415,124 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, const char* nome_arq
     double bloco_atual[8][8];
     char mantissa_buffer[17]; // Buffer para a string da mantissa (max 16 bits + \0)
 
-    // --- Processa Canal Y (Luminância) ---
+    // ======================================================================
+    // === PASSO 1: Processa o Canal de Luminância (Y)
+    // ======================================================================
     for (int i_bloco = 0; i_bloco < img_quantizada.height; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < img_quantizada.width; j_bloco += 8) {
             
-            // Copia o bloco
+            // Copia o bloco 8x8 atual do canal Y
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
                 bloco_atual[i][j] = img_quantizada.Y[i_bloco + i][j_bloco + j];
 
-            // Codifica o bloco para obter DC_dif e pares RLE
+            // Codifica o bloco para obter DC_dif e os pares RLE para os ACs
             BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Y);
-            dc_anterior_Y += bloco_codificado.DC_dif; // Atualiza o DC anterior
+            dc_anterior_Y += bloco_codificado.DC_dif; // ATENÇÃO: Atualiza o DC anterior para a PRÓXIMA iteração
 
-            // --- A MÁGICA DE HUFFMAN ACONTECE AQUI ---
+            // --- Escreve os bits do bloco no arquivo ---
 
-            // Codifica o DC
+            // A. Codifica o coeficiente DC
             int dc_cat = get_category(bloco_codificado.DC_dif);
             const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
             get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
             write_bits(&writer, dc_prefixo);
             write_bits(&writer, mantissa_buffer);
             
-            // Codifica os ACs
-            for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
+            // B. Codifica os coeficientes AC
+            for(int i = 0; i < bloco_codificado.qtd_pares; i++) { // Renomeei 'qtd_trinca' para 'qtd_pares' para consistência
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
-                int ac_cat = get_category(par.coeficiente);
-                
-                const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
-                get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                write_bits(&writer, ac_prefixo);
-                write_bits(&writer, mantissa_buffer);
+
+                // --- Lógica para tratar os símbolos especiais ---
+                if (par.zeros == 0 && par.coeficiente == 0) { // Símbolo EOB
+                    write_bits(&writer, huffman_ac_lum_codes[0][0]);
+                    break; 
+                } 
+                else if (par.zeros == 15 && par.coeficiente == 0) { // Símbolo ZRL
+                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                } 
+                else { // Par RLE normal
+                    int ac_cat = get_category(par.coeficiente);
+                    const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
+                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    write_bits(&writer, ac_prefixo);
+                    write_bits(&writer, mantissa_buffer);
+                }
             }
         }
     }
     
-    // AQUI: Você repetiria o loop acima para os canais Cb e Cr,
-    // usando dc_anterior_Cb e dc_anterior_Cr.
-    // (Lembrando que Cb e Cr têm altura/largura divididas por 2)
-    // --- Processa Canal Cb ---
-    for (int i_bloco = 0; i_bloco < img_quantizada.height / 2; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < img_quantizada.width / 2; j_bloco += 8) {
-            
-            // Copia o bloco
+    // ======================================================================
+    // === PASSO 2: Processa o Canal de Crominância (Cb)
+    // ======================================================================
+    int altura_chroma = img_quantizada.height / 2;
+    int largura_chroma = img_quantizada.width / 2;
+
+    for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
                 bloco_atual[i][j] = img_quantizada.Cb[i_bloco + i][j_bloco + j];
-
-            // Codifica o bloco para obter DC_dif e pares RLE
-            BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Cb);
-            dc_anterior_Cb += bloco_codificado.DC_dif; // Atualiza o DC anterior
-
-            // --- A MÁGICA DE HUFFMAN ACONTECE AQUI ---
-
-            // Codifica o DC
-            int dc_cat = get_category(bloco_codificado.DC_dif);
-            const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
-            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            write_bits(&writer, dc_prefixo);
-            write_bits(&writer, mantissa_buffer);
             
-            // Codifica os ACs
+            BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Cb);
+            dc_anterior_Cb += bloco_codificado.DC_dif;
+
+            int dc_cat = get_category(bloco_codificado.DC_dif);
+            write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
+            write_bits(&writer, mantissa_buffer);
+
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
-                int ac_cat = get_category(par.coeficiente);
-                
-                const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
-                get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                write_bits(&writer, ac_prefixo);
-                write_bits(&writer, mantissa_buffer);
+                if (par.zeros == 0 && par.coeficiente == 0) {
+                    write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                } else if (par.zeros == 15 && par.coeficiente == 0) {
+                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                } else {
+                    int ac_cat = get_category(par.coeficiente);
+                    write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    write_bits(&writer, mantissa_buffer);
+                }
             }
         }
     }
 
-    // --- Processa Canal Cr ---
-    for (int i_bloco = 0; i_bloco < img_quantizada.height / 2; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < img_quantizada.width / 2; j_bloco += 8) {
-            
-            // Copia o bloco
+    // ======================================================================
+    // === PASSO 3: Processa o Canal de Crominância (Cr)
+    // ======================================================================
+    for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
                 bloco_atual[i][j] = img_quantizada.Cr[i_bloco + i][j_bloco + j];
 
-            // Codifica o bloco para obter DC_dif e pares RLE
             BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Cr);
-            dc_anterior_Cr += bloco_codificado.DC_dif; // Atualiza o DC anterior
-
-            // --- A MÁGICA DE HUFFMAN ACONTECE AQUI ---
-
-            // Codifica o DC
-            int dc_cat = get_category(bloco_codificado.DC_dif);
-            const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
-            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            write_bits(&writer, dc_prefixo);
-            write_bits(&writer, mantissa_buffer);
+            dc_anterior_Cr += bloco_codificado.DC_dif;
             
-            // Codifica os ACs
+            int dc_cat = get_category(bloco_codificado.DC_dif);
+            write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
+            write_bits(&writer, mantissa_buffer);
+
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
-                int ac_cat = get_category(par.coeficiente);
-                
-                const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
-                get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                write_bits(&writer, ac_prefixo);
-                write_bits(&writer, mantissa_buffer);
+                if (par.zeros == 0 && par.coeficiente == 0) {
+                    write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                } else if (par.zeros == 15 && par.coeficiente == 0) {
+                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                } else {
+                    int ac_cat = get_category(par.coeficiente);
+                    write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    write_bits(&writer, mantissa_buffer);
+                }
             }
         }
     }
 
-
-    // 2. Finaliza a escrita, escrevendo quaisquer bits restantes no buffer
+    // 2. Finaliza a escrita, descarregando quaisquer bits restantes no buffer
     flush_bits(&writer);
 
     fclose(arquivo);
-    printf("Imagem comprimida e salva em %s\n", nome_arquivo_saida);
+    printf("Imagem comprimida e salva com sucesso em '%s'\n", nome_arquivo_saida);
 }
 
 
