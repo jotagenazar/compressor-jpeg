@@ -212,7 +212,7 @@ void TESTE()
     liberar_YCbCr_downsampled(YCbCr_quantizado);
 
 
-    YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_desquantizado);
+    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
     liberar_YCbCr_downsampled(YCbCr_desquantizado);
 
     YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
