@@ -25,6 +25,10 @@ compressão JPEG de imagens YCbCr no domínio das frequências e funções de co
 * MACROS AND DEFINES
 *************************************/
 
+// Matrizes de quantização sugeridas para a matriz Y e para as matrizes Cb e Cr
+extern const int Q_Y[8][8];
+extern const int Q_C[8][8];
+
 extern const int zigzag[64][2];
 
 

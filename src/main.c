@@ -126,6 +126,9 @@ int main()
 
             // Codificação
 
+
+            liberar_YCbCr_downsampled(YCbCr_quantizado);
+
             break;
         }
 
@@ -208,17 +211,17 @@ void TESTE()
 
 
     YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
-    liberar_YCbCr_reduced(YCbCr_quantizado);
+    liberar_YCbCr_downsampled(YCbCr_quantizado);
 
     YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_desquantizado);
-    liberar_YCbCr_reduced(YCbCr_desquantizado);
+    liberar_YCbCr_downsampled(YCbCr_desquantizado);
 
     YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
-    liberar_YCbCr_reduced(YCbCr_IDCT);
+    liberar_YCbCr_downsampled(YCbCr_IDCT);
 
     RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
 
-    YCbCr2RGB(YCbCr_up,  rgb_final);
+    YCbCr_to_RGB(YCbCr_up,  rgb_final);
 
     exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
     printf("Imagem salva como imagem_saida.bmp\n");

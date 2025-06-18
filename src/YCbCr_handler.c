@@ -65,6 +65,21 @@ void _copiar_YCbCr(YCbCrImg fonte, YCbCrImg alvo);
 // fonte e alvo são do mesmo tamanho
 void _copiar_matriz_Y(YCbCrImg fonte, YCbCrImg alvo);
 
+// Função que aplica a DCT a partir de um bloco B passado como parâmetro e retorna os coeficientes em F
+void _aplicar_DCT_bloco(double B[8][8], double F[8][8]);
+
+// Função que aplica a inversa da DCT a partir dos coeficientes em F passados como parâmetro e retorna o bloco
+// original B
+void _aplicar_IDCT_bloco(double F[8][8], double B[8][8]);
+
+// Função que aplica a DCT em todos os blocos da matriz passada como parâmetro e retorna a nova matriz alocada com os
+// coeficientes calculados em cada bloco
+double** _aplicar_DCT_matriz(double** matriz, int height, int width);
+
+// Função que aplica a inversa da DCT em todos os coeficientes nos blocos da matriz passada como parâmetro e retorna 
+// a nova matriz alocada com os blocos originais em cada posição
+double** _aplicar_IDCT_matriz(double** matriz, int height, int width);
+
 
 /************************************
 * STATIC FUNCTIONS
@@ -116,6 +131,168 @@ void _copiar_matriz_Y(YCbCrImg fonte, YCbCrImg alvo)
             alvo.Y[i][j] = fonte.Y[i][j];
         }
     }
+}
+
+void _aplicar_DCT_bloco(double B[8][8], double F[8][8])
+{   
+    // DCT = C x B x Ct
+    
+    // matriz auxiliar para realizar a multiplicação
+    double temp[8][8];
+
+    // temp = C × B
+    for (int i = 0; i < 8; i++) 
+    {
+        for (int j = 0; j < 8; j++) 
+        {
+            temp[i][j] = 0.0;
+
+            for (int k = 0; k < 8; k++) 
+            {
+                temp[i][j] += C[i][k] * B[k][j];
+            }
+        }
+    }
+
+    // F = temp × Ct
+    for (int i = 0; i < 8; i++) 
+    {
+        for (int j = 0; j < 8; j++) 
+        {
+            F[i][j] = 0.0;
+
+            for (int k = 0; k < 8; k++) {
+                F[i][j] += temp[i][k] * Ct[k][j];
+            }
+        }
+    }
+}
+
+
+void _aplicar_IDCT_bloco(double F[8][8], double B[8][8])
+{
+    // B = Ct x F x C
+
+    // matriz auxiliar para realizar a multiplicação
+    double temp[8][8];
+
+    // temp = Ct × F
+    for (int i = 0; i < 8; i++) 
+    {
+        for (int j = 0; j < 8; j++) 
+        {
+            temp[i][j] = 0.0;
+
+            for (int k = 0; k < 8; k++) 
+            {
+                temp[i][j] += Ct[i][k] * F[k][j];
+            }
+        }
+    }
+
+    // B = temp × C
+    for (int i = 0; i < 8; i++) 
+    {
+        for (int j = 0; j < 8; j++) 
+        {
+            B[i][j] = 0.0;
+            
+            for (int k = 0; k < 8; k++) 
+            {
+                B[i][j] += temp[i][k] * C[k][j];
+            }
+        }
+    }
+}
+
+
+double** _aplicar_DCT_matriz(double** matriz, int height, int width)
+{
+    // Alocando espaço para a matriz de resultado
+    double** output = malloc(height * sizeof(double*));
+    for (int i = 0; i < height; i++) 
+    {
+        output[i] = malloc(width * sizeof(double));
+    }
+
+    double B[8][8];
+    double F[8][8];
+
+    for (int i_bloco = 0; i_bloco < height; i_bloco += 8) 
+    {
+        for (int j_bloco = 0; j_bloco < width; j_bloco += 8) 
+        {
+
+            // Copia o bloco da matriz original
+            for (int i = 0; i < 8; i++) 
+            {
+                for (int j = 0; j < 8; j++) 
+                {
+                    B[i][j] = matriz[i_bloco + i][j_bloco + j];
+                }
+            }
+
+            // Aplica DCT no bloco
+            _aplicar_DCT_bloco(B, F);
+
+            // Copia o resultado para matriz final
+            for (int i = 0; i < 8; i++) 
+            {
+                for (int j = 0; j < 8; j++) 
+                {
+                    output[i_bloco + i][j_bloco + j] = F[i][j];
+                }
+            }
+
+        }
+    }
+
+    return output;
+}
+
+
+double** _aplicar_IDCT_matriz(double** matriz, int height, int width)
+{
+    double** output = malloc(height * sizeof(double*));
+    for (int i = 0; i < height; i++) 
+    {
+        output[i] = malloc(width * sizeof(double));
+    }
+
+    double F[8][8];
+    double B[8][8];
+
+    for (int i_bloco = 0; i_bloco < height; i_bloco += 8) 
+    {
+        for (int j_bloco = 0; j_bloco < width; j_bloco += 8) 
+        {
+
+            // Copia o bloco transformado
+            for (int i = 0; i < 8; i++) 
+            {
+                for (int j = 0; j < 8; j++) 
+                {
+                    F[i][j] = matriz[i_bloco + i][j_bloco + j];
+                }
+            }
+
+            // Aplica a IDCT
+            _aplicar_IDCT_bloco(F, B);
+
+            // Copia o resultado para a matriz final
+            for (int i = 0; i < 8; i++) 
+            {
+                for (int j = 0; j < 8; j++) 
+                {
+                    output[i_bloco + i][j_bloco + j] = B[i][j];
+                }
+            }
+
+        }
+
+    }
+
+    return output;
 }
 
 /************************************
@@ -387,151 +564,31 @@ YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled)
 }
 
 
-void _aplicar_DCT_bloco(double B[8][8], double F[8][8])
+YCbCrImg aplicar_DCT_YCbCr(YCbCrImg YCbCr_img)
 {
-    double temp[8][8];
+    YCbCrImg YCbCr_DCT;
 
-    // temp = C × B
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            temp[i][j] = 0.0;
-            for (int k = 0; k < 8; k++) {
-                temp[i][j] += C[i][k] * B[k][j];
-            }
-        }
-    }
+    YCbCr_DCT.width = YCbCr_img.width;
+    YCbCr_DCT.height = YCbCr_img.height;
 
-    // F = temp × Ct
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            F[i][j] = 0.0;
-            for (int k = 0; k < 8; k++) {
-                F[i][j] += temp[i][k] * Ct[k][j];
-            }
-        }
-    }
+    YCbCr_DCT.Y  = aplicar_DCT(YCbCr_img.Y, YCbCr_img.height, YCbCr_img.width);
+    YCbCr_DCT.Cb = aplicar_DCT(YCbCr_img.Cb, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_DCT.Cr = aplicar_DCT(YCbCr_img.Cr, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
+
+    return YCbCr_DCT;
 }
 
-double** aplicar_DCT(double** entrada, int altura, int largura)
+
+YCbCrImg aplicar_IDCT_YCbCr(YCbCrImg YCbCr_DCT)
 {
-    // Alocando espaço para a matriz passada
-    double** saida = malloc(altura * sizeof(double*));
-    for (int i = 0; i < altura; i++) {
-        saida[i] = malloc(largura * sizeof(double));
-    }
+    YCbCrImg YCbCr_img;
 
-    double B[8][8];
-    double F[8][8];
+    YCbCr_img.width = YCbCr_DCT.width;
+    YCbCr_img.height = YCbCr_DCT.height;
 
-    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
+    YCbCr_img.Y  = aplicar_IDCT(YCbCr_DCT.Y, YCbCr_DCT.height, YCbCr_DCT.width);
+    YCbCr_img.Cb = aplicar_IDCT(YCbCr_DCT.Cb, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_img.Cr = aplicar_IDCT(YCbCr_DCT.Cr, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
 
-            // Copia o bloco da matriz original
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    B[i][j] = entrada[i_bloco + i][j_bloco + j];
-                }
-            }
-
-            // Aplica DCT no bloco
-            aplicar_DCT_bloco(B, F);
-
-            // Copia resultado para matriz final
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    saida[i_bloco + i][j_bloco + j] = F[i][j];
-                }
-            }
-        }
-    }
-
-    return saida;
-}
-
-YCbCrImg executar_DCT(YCbCrImg entrada)
-{
-    YCbCrImg transformado;
-
-    transformado.width = entrada.width;
-    transformado.height = entrada.height;
-
-    transformado.Y  = aplicar_DCT(entrada.Y, entrada.height, entrada.width);
-    transformado.Cb = aplicar_DCT(entrada.Cb, entrada.height/2, entrada.width/2);
-    transformado.Cr = aplicar_DCT(entrada.Cr, entrada.height/2, entrada.width/2);
-
-    return transformado;
-}
-
-void aplicar_IDCT_bloco(double F[8][8], double B[8][8])
-{
-    double temp[8][8];
-
-    // temp = Ct × F
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            temp[i][j] = 0.0;
-            for (int k = 0; k < 8; k++) {
-                temp[i][j] += Ct[i][k] * F[k][j];
-            }
-        }
-    }
-
-    // B = temp × C
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            B[i][j] = 0.0;
-            for (int k = 0; k < 8; k++) {
-                B[i][j] += temp[i][k] * C[k][j];
-            }
-        }
-    }
-}
-
-double** aplicar_IDCT(double** entrada, int altura, int largura)
-{
-    double** saida = malloc(altura * sizeof(double*));
-    for (int i = 0; i < altura; i++) {
-        saida[i] = malloc(largura * sizeof(double));
-    }
-
-    double F[8][8];
-    double B[8][8];
-
-    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
-
-            // Copia o bloco transformado
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    F[i][j] = entrada[i_bloco + i][j_bloco + j];
-                }
-            }
-
-            // Aplica a IDCT
-            aplicar_IDCT_bloco(F, B);
-
-            // Copia o resultado para a matriz final
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    saida[i_bloco + i][j_bloco + j] = B[i][j];
-                }
-            }
-        }
-    }
-
-    return saida;
-}
-
-YCbCrImg executar_IDCT(YCbCrImg entrada)
-{
-    YCbCrImg reconstruido;
-
-    reconstruido.width = entrada.width;
-    reconstruido.height = entrada.height;
-
-    reconstruido.Y  = aplicar_IDCT(entrada.Y, entrada.height, entrada.width);
-    reconstruido.Cb = aplicar_IDCT(entrada.Cb, entrada.height/2, entrada.width/2);
-    reconstruido.Cr = aplicar_IDCT(entrada.Cr, entrada.height/2, entrada.width/2);
-
-    return reconstruido;
+    return YCbCr_img;
 }

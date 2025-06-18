@@ -5,7 +5,9 @@
 
 Biblioteca contendo as funções responsáveis por lidar com a manipulação de imagens YCbCr, como funções de alocação,
 transformação RGB para YCbCr, downsampling de imagens YCbCr e execução de transformação DCT e IDCT para mudança de domínio
-de imagens YCbCr
+de imagens YCbCr.
+
+Blocos a partir da DCT são 8x8 por padrão.
 
 */
 
@@ -27,11 +29,9 @@ de imagens YCbCr
 // valor do divisor pelo qual as dimensões das matrizes Cb e Cr serão divididas no processo de downsampling
 #define DOWNSAMPLE_DIVISOR 2
 
+// Matrizes de transformação C e C transposta usadas na DCT
 extern const double C[8][8]; 
 extern const double Ct[8][8];
-
-extern const int Q_Y[8][8];
-extern const int Q_C[8][8];
 
 
 /************************************
@@ -112,18 +112,10 @@ YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled);
 
 
 
-void aplicar_DCT_bloco(double B[8][8], double F[8][8]);
-
-double** aplicar_DCT(double** entrada, int altura, int largura);
-
-YCbCrImg executar_DCT(YCbCrImg entrada);
+YCbCrImg aplicar_DCT_YCbCr(YCbCrImg YCbCr_img);
 
 
-void aplicar_IDCT_bloco(double F[8][8], double B[8][8]);
-
-double** aplicar_IDCT(double** entrada, int altura, int largura);
-
-YCbCrImg executar_IDCT(YCbCrImg entrada);
+YCbCrImg aplicar_IDCT_YCbCr(YCbCrImg YCbCr_DCT);
 
 
 
