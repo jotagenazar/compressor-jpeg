@@ -1,19 +1,31 @@
 #ifndef YCBCR_HANDLER_H 
 #define YCBCR_HANDLER_H
 
+/*
+
+Biblioteca contendo as funções responsáveis por lidar com a manipulação de imagens YCbCr, como funções de alocação,
+transformação RGB para YCbCr, downsampling de imagens YCbCr e execução de transformação DCT e IDCT para mudança de domínio
+de imagens YCbCr
+
+*/
+
+
 /************************************
 * INCLUDES
 *************************************/
 
-    #include <stdio.h>
-    #include <stdlib.h>
-    #include <math.h>
-    #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdint.h>
 
 
 /************************************
 * MACROS AND DEFINES
 *************************************/
+
+// valor do divisor pelo qual as dimensões das matrizes Cb e Cr serão divididas no processo de downsampling
+#define DOWNSAMPLE_DIVISOR 2
 
 extern const double C[8][8]; 
 extern const double Ct[8][8];
@@ -21,107 +33,98 @@ extern const double Ct[8][8];
 extern const int Q_Y[8][8];
 extern const int Q_C[8][8];
 
-extern const int zigzag[64][2];
-
-
 
 /************************************
 * TYPEDEFS AND STRUCTS
 *************************************/
 
-    // Struct que contém a matriz dinâmica RGB de uma imagem
-    typedef struct 
-    {
-        int height;          
-        int width;            
-        unsigned char **R;
-        unsigned char **G;
-        unsigned char **B;
-    } RGBImg;
-
-    // Struct que contém a matriz dinâmica YCbCr de uma imagem
-    typedef struct 
-    {
-        int height;          
-        int width;            
-        double **Y;
-        double **Cb;
-        double **Cr;
-    } YCbCrImg;
+// Struct que contém a matriz dinâmica RGB de uma imagem e suas informações de dimensão
+typedef struct 
+{
+    int height;          
+    int width;            
+    unsigned char **R;
+    unsigned char **G;
+    unsigned char **B;
+} RGBImg;
 
 
-    typedef struct 
-    {
-        int zeros; //Número de zeros seguidos
-        int coeficiente; //Valor não-zero
+// Struct que contém a matriz dinâmica YCbCr de uma imagem e suas informações de dimensão.
+// As dimensões sempre representam os valores da matriz Y para o caso de imagens que sofreram downsampling
+typedef struct 
+{
+    int height;          
+    int width;            
+    double **Y;
+    double **Cb;
+    double **Cr;
+} YCbCrImg;
 
-    } Par_RLE;
-
-    typedef struct {
-        unsigned short bits; // código Huffman (até 16 bits)
-        int tamanho;         // quantos bits esse código tem
-    } HuffmanCode;
-
-    extern const HuffmanCode HUFFMAN_DC[12];
 
 /************************************
 * GLOBAL FUNCTION PROTOTYPES
 *************************************/
 
-    // Função que cria a struct para a matriz RGB com as dimensões passadas, aloca dinamicamente
-    // a matriz e retorna a struct
-    RGBImg alocar_RGB(int width, int height);
+// Função que cria a struct para a matriz RGB com as dimensões passadas, aloca dinamicamente
+// a matriz e retorna a struct
+RGBImg alocar_RGB(int width, int height);
 
-    // Função que desaloca corretamente a matriz RGB contida na estrutura
-    void liberar_RGB(RGBImg rgb_img);
+// Função que cria a struct para a matriz YCbCr com as dimensões passadas, aloca dinamicamente
+// a matriz e retorna a struct
+YCbCrImg alocar_YCbCr(int width, int height);
 
-    YCbCrImg alocar_YCbCr(int width, int height);
+// Função que cria a struct para a matriz YCbCr reduzida usada no downsampling com as dimensões passadas, 
+// aloca dinamicamente a matriz e retorna a struct. O divisor para a diminuição é o definido no macro DOWNSAMPLE_DIVISOR.
+// As dimensões passadas sempre representam as dimensões da matriz Y para o caso de imagens que sofreram downsampling
+YCbCrImg alocar_YCbCr_downsampled(int width, int height);
 
-    YCbCrImg alocar_YCbCr_reduzida(int width, int height);
 
-    void liberar_YCbCr(YCbCrImg YCbCr_img);
 
-    void liberar_YCbCr_reduced(YCbCrImg YCbCr_img);
+// Função que desaloca corretamente a matriz RGB cujos ponteiros estão contidos na struct passada
+void liberar_RGB(RGBImg rgb_img);
 
-    void RGB2YCbCr(YCbCrImg YCbCr_img, RGBImg rgb_img);
+// Função que desaloca corretamente a matriz YCbCr cujos ponteiros estão contidos na struct passada
+void liberar_YCbCr(YCbCrImg YCbCr_img);
 
-    void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img);
+// Função que desaloca corretamente a matriz YCbCr reduzida cujos ponteiros estão contidos na struct passada.
+// O divisor para a diminuição é o definido no macro DOWNSAMPLE_DIVISOR
+void liberar_YCbCr_downsampled(YCbCrImg YCbCr_downsampled);
 
-    YCbCrImg downsamplig(YCbCrImg YCbCr_img);
 
-    void aplicar_DCT_bloco(double B[8][8], double F[8][8]);
 
-    double** aplicar_DCT(double** entrada, int altura, int largura);
+// Procedimento responsável por converter a matriz RGB para o formato YCbCr e preencher as matrizes já alocadas
+// na struct YCbCr passada como parametro com os valores convertidos
+void RGB_to_YCbCr(RGBImg rgb_img, YCbCrImg YCbCr_img);
 
-    YCbCrImg executar_DCT(YCbCrImg entrada);
+// Procedimento responsável por converter a matriz YCbCr para o formato RGB e preencher as matrizes já alocadas
+// na struct RGB passada como parametro com os valores convertidos
+void YCbCr_to_RGB(YCbCrImg YCbCr_img, RGBImg rgb_img);
 
-    void aplicar_IDCT_bloco(double F[8][8], double B[8][8]);
 
-    double** aplicar_IDCT(double** entrada, int altura, int largura);
 
-    YCbCrImg executar_IDCT(YCbCrImg entrada);
+// Função que realiza o downsample de uma imagem YCbCr passada através da struct como parâmetro, retornando a struct
+// YCbCr com dimensões de Cb e Cr reduzidas dividindo as dimensões por DOWNSAMPLE_DIVISOR
+YCbCrImg downsample_YCbCr(YCbCrImg YCbCr_img);
 
-    YCbCrImg upsampling(YCbCrImg reduzido);
+// Função que realiza o upsample de uma imagem YCbCr reduzida passada através da struct como parâmetro, retornando a struct
+// YCbCr com dimensões e valores de Cb e Cr restaurados de acordo com DOWNSAMPLE_DIVISOR
+YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled);
 
-    void quantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
 
-    double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
 
-    YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k);
+void aplicar_DCT_bloco(double B[8][8], double F[8][8]);
 
-    void desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
+double** aplicar_DCT(double** entrada, int altura, int largura);
 
-    double** desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
+YCbCrImg executar_DCT(YCbCrImg entrada);
 
-    YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 
-    int* aplicar_zigzag(double bloco[8][8]);
+void aplicar_IDCT_bloco(double F[8][8], double B[8][8]);
 
-    int calcular_diferenca_dc(int atual, int anteior);
+double** aplicar_IDCT(double** entrada, int altura, int largura);
 
-    int aplicar_rle_ac(int vetor[64], Par_RLE* pares);
+YCbCrImg executar_IDCT(YCbCrImg entrada);
 
-    int codificar_bloco(int bloco[8][8], int dc_anterior, int* diferenca_dc, Par_RLE* ac_pares);
 
 
 #endif

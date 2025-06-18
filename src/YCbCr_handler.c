@@ -2,8 +2,8 @@
 * INCLUDES
 ************************************/
 
-    #include "../include/YCbCr_handler.h"
-    #include <stdio.h>
+#include "../include/YCbCr_handler.h"
+
 
 /************************************
 * EXTERN VARIABLES
@@ -32,54 +32,6 @@ double const Ct[8][8] = {
     { 0.354, -0.490,  0.462, -0.416,  0.354, -0.278,  0.191, -0.098 }
 };
 
-const int Q_Y[8][8] = {
-    {16,11,10,16,24,40,51,61},
-    {12,12,14,19,26,58,60,55},
-    {14,13,16,24,40,57,69,56},
-    {14,17,22,29,51,87,80,62},
-    {18,22,37,56,68,109,103,77},
-    {24,35,55,64,81,104,113,92},
-    {49,64,78,87,103,121,120,101},
-    {72,92,95,98,112,100,103,99}
-};
-
-const int Q_C[8][8] = {
-    {17,18,24,47,99,99,99,99},
-    {18,21,26,66,99,99,99,99},
-    {24,26,56,99,99,99,99,99},
-    {47,66,99,99,99,99,99,99},
-    {99,99,99,99,99,99,99,99},
-    {99,99,99,99,99,99,99,99},
-    {99,99,99,99,99,99,99,99},
-    {99,99,99,99,99,99,99,99}
-};
-
-const int zigzag[64][2] = {
-    {0,0}, {0,1}, {1,0}, {2,0}, {1,1}, {0,2}, {0,3}, {1,2},
-    {2,1}, {3,0}, {4,0}, {3,1}, {2,2}, {1,3}, {0,4}, {0,5},
-    {1,4}, {2,3}, {3,2}, {4,1}, {5,0}, {6,0}, {5,1}, {4,2},
-    {3,3}, {2,4}, {1,5}, {0,6}, {0,7}, {1,6}, {2,5}, {3,4},
-    {4,3}, {5,2}, {6,1}, {7,0}, {7,1}, {6,2}, {5,3}, {4,4},
-    {3,5}, {2,6}, {1,7}, {2,7}, {3,6}, {4,5}, {5,4}, {6,3},
-    {7,2}, {7,3}, {6,4}, {5,5}, {4,6}, {3,7}, {4,7}, {5,6},
-    {6,5}, {7,4}, {7,5}, {6,6}, {5,7}, {6,7}, {7,6}, {7,7}
-};
-
-const HuffmanCode HUFFMAN_DC[12] = {
-    {0b00,         2},  // Categoria 0
-    {0b010,        3},  // Categoria 1
-    {0b011,        3},  // Categoria 2
-    {0b100,        3},  // Categoria 3
-    {0b101,        3},  // Categoria 4
-    {0b110,        3},  // Categoria 5
-    {0b1110,       4},  // Categoria 6
-    {0b11110,      5},  // Categoria 7
-    {0b111110,     6},  // Categoria 8
-    {0b1111110,    7},  // Categoria 9
-    {0b11111110,   8},  // Categoria 10
-    {0b111111110,  9}   // Categoria 11
-};
-
 
 /************************************
 * PRIVATE MACROS AND DEFINES
@@ -101,95 +53,133 @@ const HuffmanCode HUFFMAN_DC[12] = {
 * STATIC FUNCTION PROTOTYPES
 ************************************/
 
+// Função que calcula o padding necessário para uma dimensão das matrizes Cb e Cr que sofrerão diminuição no processo de downsampling
+// Usada para criar uma YCbCr com dimensões adaptadas que podem sofrer downsampling sendo divididas por DOWNSAMPLE_DIVISOR
+int _calcular_dim_com_padding_YCbCr(int size);
+
+// Função que copia os valores das matrizes YCbCr para as matrizes de outra struct, alvo deve ser
+// sempre maior que a matriz fonte, ultimo pixel da menor repetido ate o final da linha da maior
+void _copiar_YCbCr(YCbCrImg fonte, YCbCrImg alvo);
+
+// Função que copia o valor apenas da matriz Y para as matrizes da outra struct.
+// fonte e alvo são do mesmo tamanho
+void _copiar_matriz_Y(YCbCrImg fonte, YCbCrImg alvo);
+
+
 /************************************
 * STATIC FUNCTIONS
 ************************************/
+
+int _calcular_dim_com_padding_YCbCr(int size)
+{
+    int size_pad;
+    int divisor = 8 * DOWNSAMPLE_DIVISOR;  // tamanho bloco * divisor do downsample
+
+    if (size % divisor == 0){
+        size_pad = size;
+    } else {
+        size_pad = size + (divisor - (size % divisor));
+    }
+
+    return size_pad;
+}
+
+void _copiar_YCbCr(YCbCrImg fonte, YCbCrImg alvo) 
+{
+
+    for (int i = 0; i < alvo.height; i++) 
+    {
+        for (int j = 0; j < alvo.width; j++) 
+        {
+            // guarda os indices atuais para copia repetida do ultimo valor da linha
+            // até o final do alvo maior
+            int i_orig = i;
+            int j_orig = j;
+
+            // se estourou o tamanho da fonte, volta para o valor da ultima linha ou coluna
+            if (i >= fonte.height) i_orig = fonte.height - 1;
+            if (j >= fonte.width) j_orig = fonte.width - 1;
+
+            alvo.Y[i][j]    = fonte.Y[i_orig][j_orig];
+            alvo.Cb[i][j]   = fonte.Cb[i_orig][j_orig];
+            alvo.Cr[i][j]   = fonte.Cr[i_orig][j_orig];
+        }
+    }
+}
+
+void _copiar_matriz_Y(YCbCrImg fonte, YCbCrImg alvo)
+{
+    for (int i = 0; i < alvo.height; i++) 
+    {
+        for (int j = 0; j < alvo.width; j++) 
+        {
+            alvo.Y[i][j] = fonte.Y[i][j];
+        }
+    }
+}
 
 /************************************
 * GLOBAL FUNCTIONS
 ************************************/
 
-    RGBImg alocar_RGB(int width, int height) 
+RGBImg alocar_RGB(int width, int height) 
+{   
+    // Criação da instância da struct e preenchimento dos valores
+    RGBImg rgb_img;
+    rgb_img.height = height;
+    rgb_img.width = width;
+
+    // alocação das matrizes rgb da struct
+    rgb_img.R = malloc(rgb_img.height * sizeof(unsigned char*));
+    rgb_img.G = malloc(rgb_img.height * sizeof(unsigned char*));
+    rgb_img.B = malloc(rgb_img.height * sizeof(unsigned char*));
+
+    for (int i = 0; i < rgb_img.height; i++) 
     {
-        RGBImg rgb_img;
-
-        rgb_img.height = height;
-        rgb_img.width = width;
-
-        rgb_img.R = malloc(rgb_img.height * sizeof(unsigned char*));
-        rgb_img.G = malloc(rgb_img.height * sizeof(unsigned char*));
-        rgb_img.B = malloc(rgb_img.height * sizeof(unsigned char*));
-
-        for (int i = 0; i < height; i++) 
-        {
-            rgb_img.R[i] = malloc(rgb_img.width * sizeof(unsigned char));
-            rgb_img.G[i] = malloc(rgb_img.width * sizeof(unsigned char));
-            rgb_img.B[i] = malloc(rgb_img.width * sizeof(unsigned char));
-        }
-
-        return rgb_img;
+        rgb_img.R[i] = malloc(rgb_img.width * sizeof(unsigned char));
+        rgb_img.G[i] = malloc(rgb_img.width * sizeof(unsigned char));
+        rgb_img.B[i] = malloc(rgb_img.width * sizeof(unsigned char));
     }
 
+    return rgb_img;
+}
 
-    void liberar_RGB(RGBImg rgb_img)
+
+void liberar_RGB(RGBImg rgb_img)
+{   
+    for (int i = 0; i < rgb_img.height; i++) 
     {
-        for (int i = 0; i < rgb_img.height; i++) 
-        {
-            free(rgb_img.R[i]);
-            free(rgb_img.G[i]);
-            free(rgb_img.B[i]);
-        }
-
-        free(rgb_img.R); free(rgb_img.G); free(rgb_img.B);
+        free(rgb_img.R[i]);
+        free(rgb_img.G[i]);
+        free(rgb_img.B[i]);
     }
 
+    free(rgb_img.R); free(rgb_img.G); free(rgb_img.B);
+}
 
-    YCbCrImg alocar_YCbCr(int width, int height) 
-    {
-        YCbCrImg YCbCr_img;
 
-        YCbCr_img.height = height;
-        YCbCr_img.width = width;
-
-        YCbCr_img.Y = malloc(YCbCr_img.height * sizeof(double*));
-        YCbCr_img.Cb = malloc(YCbCr_img.height * sizeof(double*));
-        YCbCr_img.Cr = malloc(YCbCr_img.height * sizeof(double*));
-
-        for (int i = 0; i < height; i++) 
-        {
-            YCbCr_img.Y[i] = malloc(YCbCr_img.width * sizeof(double));
-            YCbCr_img.Cb[i] = malloc(YCbCr_img.width * sizeof(double));
-            YCbCr_img.Cr[i] = malloc(YCbCr_img.width * sizeof(double));
-        }
-
-        return YCbCr_img;
-    }
-
-/* Essa função não está sendo usada. 
-Eu achei que ia precisar por causa da Downsampling mas eu crio na mao as matriz
-E seto os ponteiros. acho que nem vamos usar. por mim pode apagar.*/ 
-YCbCrImg alocar_YCbCr_reduzida(int width, int height)
+YCbCrImg alocar_YCbCr(int width, int height) 
 {
+    // Criação da instância da struct e preenchimento dos valores
     YCbCrImg YCbCr_img;
-
     YCbCr_img.height = height;
     YCbCr_img.width = width;
 
-    YCbCr_img.Y = malloc(YCbCr_img.height * sizeof(double*));
-    YCbCr_img.Cb = malloc((YCbCr_img.height/2) * sizeof(double*));
-    YCbCr_img.Cr = malloc((YCbCr_img.height/2) * sizeof(double*));
+    // alocação das matrizes YCbCr
+    YCbCr_img.Y =   malloc(YCbCr_img.height * sizeof(double*));
+    YCbCr_img.Cb =  malloc(YCbCr_img.height * sizeof(double*));
+    YCbCr_img.Cr =  malloc(YCbCr_img.height * sizeof(double*));
 
-    for (int i = 0; i < height; i++) {
-        YCbCr_img.Y[i] = malloc(width * sizeof(double));
-    }
-
-    for (int i = 0; i < height / 2; i++) {
-        YCbCr_img.Cb[i] = malloc((width / 2) * sizeof(double));
-        YCbCr_img.Cr[i] = malloc((width / 2) * sizeof(double));
+    for (int i = 0; i < height; i++) 
+    {
+        YCbCr_img.Y[i] =    malloc(YCbCr_img.width * sizeof(double));
+        YCbCr_img.Cb[i] =   malloc(YCbCr_img.width * sizeof(double));
+        YCbCr_img.Cr[i] =   malloc(YCbCr_img.width * sizeof(double));
     }
 
     return YCbCr_img;
 }
+
 
 void liberar_YCbCr(YCbCrImg YCbCr_img)
 {
@@ -203,30 +193,66 @@ void liberar_YCbCr(YCbCrImg YCbCr_img)
     free(YCbCr_img.Y); free(YCbCr_img.Cb); free(YCbCr_img.Cr);
 }
 
-void liberar_YCbCr_reduced(YCbCrImg YCbCr_img)
+
+YCbCrImg alocar_YCbCr_downsampled(int width, int height)
 {
-    for (int i = 0; i < YCbCr_img.height; i++) 
+    // Criação da instância da struct e preenchimento dos valores
+    YCbCrImg YCbCr_downsampled;
+    YCbCr_downsampled.height = height;
+    YCbCr_downsampled.width = width;
+
+    // calculo do padding necessário nas dimensões das matrizes Cb e Cr que sofrerão redução
+    int width_pad   = _calcular_dim_com_padding_YCbCr(width);
+    int height_pad  = _calcular_dim_com_padding_YCbCr(height);
+
+    // alocação das matrizes YCbCr a partir dos valores com padding da redução
+    YCbCr_downsampled.Y =   malloc(YCbCr_downsampled.height             * sizeof(double*));
+    YCbCr_downsampled.Cb =  malloc((height_pad / DOWNSAMPLE_DIVISOR)    * sizeof(double*));
+    YCbCr_downsampled.Cr =  malloc((height_pad / DOWNSAMPLE_DIVISOR)    * sizeof(double*));
+
+    for (int i = 0; i < height; i++) 
     {
-        free(YCbCr_img.Y[i]);
+        YCbCr_downsampled.Y[i] = malloc(width * sizeof(double));
+    }
+    for (int i = 0; i < height / DOWNSAMPLE_DIVISOR; i++) 
+    {
+        YCbCr_downsampled.Cb[i] = malloc((width_pad / DOWNSAMPLE_DIVISOR) * sizeof(double));
+        YCbCr_downsampled.Cr[i] = malloc((width_pad / DOWNSAMPLE_DIVISOR) * sizeof(double));
     }
 
-    for (int i = 0; i < YCbCr_img.height/2; i++)
-    {
-        free(YCbCr_img.Cb[i]);
-        free(YCbCr_img.Cr[i]);
-    } 
-
-    free(YCbCr_img.Y); free(YCbCr_img.Cb); free(YCbCr_img.Cr);
+    return YCbCr_downsampled;
 }
 
 
-void RGB2YCbCr(YCbCrImg YCbCr_img, RGBImg rgb_img)
+void liberar_YCbCr_downsampled(YCbCrImg YCbCr_downsampled)
 {
-    //double R, G, B;
+    for (int i = 0; i < YCbCr_downsampled.height; i++) 
+    {
+        free(YCbCr_downsampled.Y[i]);
+    }
+    
+    // liberação dos vetores das matrizes reduzidas Cb e Cr
+    for (   int i = 0; 
+            i < (_calcular_dim_com_padding_YCbCr(YCbCr_downsampled.height) / DOWNSAMPLE_DIVISOR); 
+            i++)
+    {
+        free(YCbCr_downsampled.Cb[i]);
+        free(YCbCr_downsampled.Cr[i]);
+    } 
+
+    free(YCbCr_downsampled.Y); free(YCbCr_downsampled.Cb); free(YCbCr_downsampled.Cr);
+}
+
+
+void RGB_to_YCbCr(RGBImg rgb_img, YCbCrImg YCbCr_img)
+{
     double Y, Cb, Cr;
 
-    for (int i = 0; i < rgb_img.height; i++) {
-        for (int j = 0; j < rgb_img.width; j++) {
+    // realiza o cálculo dos valores de conversão para cada pixel da imagem em cada matriz
+    for (int i = 0; i < rgb_img.height; i++) 
+    {
+        for (int j = 0; j < rgb_img.width; j++) 
+        {
 
             Y  = 0.299 * rgb_img.R[i][j] + 0.587 * rgb_img.G[i][j] + 0.114 * rgb_img.B[i][j];
             Cb = 0.564 * (rgb_img.B[i][j] - Y);
@@ -239,13 +265,17 @@ void RGB2YCbCr(YCbCrImg YCbCr_img, RGBImg rgb_img)
     }
 }
 
-void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img)
+
+void YCbCr_to_RGB(YCbCrImg YCbCr_img, RGBImg rgb_img)
 {
     double Y, Cb, Cr;
     int R, G, B;
 
-    for (int i = 0; i < YCbCr_img.height; i++) {
-        for (int j = 0; j < YCbCr_img.width; j++) {
+    // realiza o cálculo dos valores de conversão para cada pixel da imagem em cada matriz
+    for (int i = 0; i < YCbCr_img.height; i++) 
+    {
+        for (int j = 0; j < YCbCr_img.width; j++) 
+        {
             Y  = YCbCr_img.Y[i][j] + 128.0;  // Reverte o level shifting
             Cb = YCbCr_img.Cb[i][j];
             Cr = YCbCr_img.Cr[i][j];
@@ -269,107 +299,95 @@ void YCbCr2RGB(YCbCrImg YCbCr_img, RGBImg rgb_img)
     }
 }
 
-YCbCrImg downsamplig(YCbCrImg YCbCr_img)
-{
-    YCbCrImg YCbCr_img_reduced;
 
-    int height = YCbCr_img.height;
-    int width = YCbCr_img.width;
-
-    // ver se preciso fazer padding na Cb e Cr
-    int height_pad;
-    if (height % 16 == 0){
-        height_pad = height;
-    } else {
-        height_pad = height + (16 - (height % 16));
-    }
-
-    int width_pad;
-    if (width % 16 == 0){
-        width_pad = width;
-    } else {
-        width_pad = width + (16 - (width % 16));
-    }
-
-    // Alocar espaco para a nova cb e cr que recebera o padding para poder fazer o downsampling
-    double **Cb_padded = malloc(height_pad * sizeof(double*));
-    double **Cr_padded = malloc(height_pad * sizeof(double*));
-
-    for (int i = 0; i < height_pad; i++) {
-        // Cria espaco na matriz
-        Cb_padded[i] = malloc(width_pad * sizeof(double));
-        Cr_padded[i] = malloc(width_pad * sizeof(double));
-
-        for (int j = 0; j < width_pad; j++) {
-            // Copia a matriz original e se precisar vai copiando a ultima linha para o padding
-            int i_orig = i;
-            int j_orig = j;
-            if (i >= height) i_orig = height - 1;
-            if (j >= width) j_orig = width - 1;
-            Cb_padded[i][j] = YCbCr_img.Cb[i_orig][j_orig];
-            Cr_padded[i][j] = YCbCr_img.Cr[i_orig][j_orig];
-        }
-    }
-
-    // Aloca espaco para o Cb e Cr com metade do tamanho
-    int reduced_height = height_pad / 2;
-    int reduced_width = width_pad / 2;
-
-    double** Cb_reduzida = malloc(reduced_height * sizeof(double*));
-    double** Cr_reduzida = malloc(reduced_height * sizeof(double*));
-    for (int i = 0; i < reduced_height; i++) {
-        Cb_reduzida[i] = malloc(reduced_width * sizeof(double));
-        Cr_reduzida[i] = malloc(reduced_width * sizeof(double));
-    }
+YCbCrImg downsample_YCbCr(YCbCrImg YCbCr_img)
+{   
+    // calculo das dimensões com padding
+    int width_pad =     _calcular_dim_com_padding_YCbCr(YCbCr_img.width);
+    int height_pad =    _calcular_dim_com_padding_YCbCr(YCbCr_img.height);
     
-    // Faz o downsampling
-    for (int i = 0; i < height_pad; i += 2) {
-        for (int j = 0; j < width_pad; j += 2) {
-            double cb_soma = Cb_padded[i][j] + Cb_padded[i+1][j] + Cb_padded[i][j+1] + Cb_padded[i+1][j+1];
-            double cr_soma = Cr_padded[i][j] + Cr_padded[i+1][j] + Cr_padded[i][j+1] + Cr_padded[i+1][j+1];
+    // alocaçao da ycbcr com padding auxiliar, que será usada para gerar a ycbcr downsampled com dimensões corretas
+    YCbCrImg YCbCr_padded  = alocar_YCbCr(width_pad, height_pad);
+    _copiar_YCbCr(YCbCr_img, YCbCr_padded);
 
-            Cb_reduzida[i/2][j/2] = cb_soma / 4.0;
-            Cr_reduzida[i/2][j/2] = cr_soma / 4.0;
+    // alocação da ycbcr reduzida, com as matrizes cb e cr com tamanho de cada dimensão dividido pelo valor do DOWNSAMPLE_DIVISOR
+    YCbCrImg YCbCr_downsampled = alocar_YCbCr_downsampled(width_pad, height_pad);
+    
+    // Cálculo do downsampling e preenchimento da ycbcr reduzida
+    double cb_soma, cr_soma;
+    int i_downs, j_downs;
+    double qnt_valores = (double) DOWNSAMPLE_DIVISOR * DOWNSAMPLE_DIVISOR;
+    for (int i = 0; i < height_pad; i += DOWNSAMPLE_DIVISOR) 
+    {
+        for (int j = 0; j < width_pad; j += DOWNSAMPLE_DIVISOR) 
+        {   
+
+            // calculo da soma dos valores dos pixels dentro daquele bloco que sofrerá downsampling
+            for(int i_sum = 0; i_sum < DOWNSAMPLE_DIVISOR; i_sum++) 
+            {
+                for(int j_sum = 0; j_sum < DOWNSAMPLE_DIVISOR; j_sum++) 
+                {
+                    cb_soma = YCbCr_padded.Cb[i + i_sum][j + j_sum];
+                    cr_soma = YCbCr_padded.Cr[i + i_sum][j + j_sum];
+                }
+            }
+            
+            // calculo posição final pós downsample
+            i_downs = i / DOWNSAMPLE_DIVISOR;
+            j_downs = j / DOWNSAMPLE_DIVISOR;
+
+            // valores são a média, soma dividida pela quantidade de valores DOWNSAMPLE_DIVISOR * DOWNSAMPLE_DIVISOR
+            YCbCr_downsampled.Cb[i_downs][j_downs] = cb_soma / qnt_valores;
+            YCbCr_downsampled.Cr[i_downs][j_downs] = cr_soma / qnt_valores;
         }
     }
 
-    // Cria espaco para Y e copia
-    double** Y_padded = malloc(height_pad * sizeof(double*));
-    for (int i = 0; i < height_pad; i++) {
-        Y_padded[i] = malloc(width_pad * sizeof(double));
-        for (int j = 0; j < width_pad; j++) {
-            int i_orig = i;
-            int j_orig = j;
-            if (i >= height) 
-                i_orig = height - 1;
-            if (j >= width) 
-                j_orig = width - 1;
+    // Copia matriz Y para struct YCbCr_downsampled
+    _copiar_matriz_Y(YCbCr_padded, YCbCr_downsampled);
 
-            Y_padded[i][j] = YCbCr_img.Y[i_orig][j_orig];
-        }
-    }
+    // Free da YCbCr com padding auxiliar
+    liberar_YCbCr(YCbCr_padded);
 
-    // Seta os ponteiros
-    YCbCr_img_reduced.height = height_pad;
-    YCbCr_img_reduced.width = width_pad;
-    YCbCr_img_reduced.Y = Y_padded;
-    YCbCr_img_reduced.Cb = Cb_reduzida;
-    YCbCr_img_reduced.Cr = Cr_reduzida;
-
-    // Free da matriz cb e cr padded
-    for (int i = 0; i < height_pad; i++) {
-        free(Cb_padded[i]);
-        free(Cr_padded[i]);
-    }
-    free(Cb_padded);
-    free(Cr_padded);
-
-    // Return
-    return YCbCr_img_reduced; 
+    return YCbCr_downsampled; 
 }
 
 
-void aplicar_DCT_bloco(double B[8][8], double F[8][8])
+YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled)
+{
+    YCbCrImg YCbCr_upsampled = alocar_YCbCr(YCbCr_downsampled.width, YCbCr_downsampled.height);
+
+    // preenchimento da matriz Y com a matriz preservada na imagem downsampled
+    _copiar_matriz_Y(YCbCr_downsampled, YCbCr_upsampled);
+
+    // preenchimento das matrizes Cb e Cr com replicação de blocos DOWNSAMPLE_DIVISOR x DOWNSAMPLE_DIVISOR
+    for (int i = 0; i < YCbCr_downsampled.height / DOWNSAMPLE_DIVISOR; i++) 
+    {
+        for (int j = 0; j < YCbCr_downsampled.width / DOWNSAMPLE_DIVISOR; j++) 
+        {
+            double cb_val = YCbCr_downsampled.Cb[i][j];
+            double cr_val = YCbCr_downsampled.Cr[i][j];
+
+            int i2 = i * DOWNSAMPLE_DIVISOR;
+            int j2 = j * DOWNSAMPLE_DIVISOR;
+
+            // preenchimento de todas as posições do bloco com o valor correspondente na matriz downsampled
+            for(int i_bloco = 0; i_bloco < DOWNSAMPLE_DIVISOR; i_bloco++) 
+            {
+                for(int j_bloco = 0; j_bloco < DOWNSAMPLE_DIVISOR; j_bloco++) 
+                {
+                    YCbCr_upsampled.Cb[i2 + i_bloco][j2 + j_bloco] = cb_val;
+                    YCbCr_upsampled.Cr[i2 + i_bloco][j2 + j_bloco] = cr_val;
+                }
+            }
+
+        }
+    }
+
+    return YCbCr_upsampled;
+}
+
+
+void _aplicar_DCT_bloco(double B[8][8], double F[8][8])
 {
     double temp[8][8];
 
@@ -517,228 +535,3 @@ YCbCrImg executar_IDCT(YCbCrImg entrada)
 
     return reconstruido;
 }
-
-YCbCrImg upsampling(YCbCrImg reduzido)
-{
-    YCbCrImg completo;
-
-    completo.width = reduzido.width;
-    completo.height = reduzido.height;
-
-    // Alocar Y (mesmo tamanho)
-    completo.Y = malloc(completo.height * sizeof(double*));
-    for (int i = 0; i < completo.height; i++) {
-        completo.Y[i] = malloc(completo.width * sizeof(double));
-        for (int j = 0; j < completo.width; j++) {
-            completo.Y[i][j] = reduzido.Y[i][j];
-        }
-    }
-
-    // Alocar Cb e Cr (tamanho cheio)
-    completo.Cb = malloc(completo.height * sizeof(double*));
-    completo.Cr = malloc(completo.height * sizeof(double*));
-    for (int i = 0; i < completo.height; i++) {
-        completo.Cb[i] = malloc(completo.width * sizeof(double));
-        completo.Cr[i] = malloc(completo.width * sizeof(double));
-    }
-
-    // Preencher Cb e Cr com replicação de blocos 2x2
-    for (int i = 0; i < reduzido.height/2; i++) {
-        for (int j = 0; j < reduzido.width/2; j++) {
-            double cb_val = reduzido.Cb[i][j];
-            double cr_val = reduzido.Cr[i][j];
-
-            int i2 = i * 2;
-            int j2 = j * 2;
-
-            completo.Cb[i2][j2]     = cb_val;
-            completo.Cb[i2+1][j2]   = cb_val;
-            completo.Cb[i2][j2+1]   = cb_val;
-            completo.Cb[i2+1][j2+1] = cb_val;
-
-            completo.Cr[i2][j2]     = cr_val;
-            completo.Cr[i2+1][j2]   = cr_val;
-            completo.Cr[i2][j2+1]   = cr_val;
-            completo.Cr[i2+1][j2+1] = cr_val;
-        }
-    }
-
-    return completo;
-}
-
-void quantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
-{
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            bloco[i][j] = round(bloco[i][j] / (k * Q[i][j]));
-        }
-    }
-}
-
-double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
-{
-    double** saida = malloc(altura * sizeof(double*));
-    for (int i = 0; i < altura; i++) {
-        saida[i] = malloc(largura * sizeof(double));
-    }
-
-    double bloco[8][8];
-
-    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
-
-            // Copia o bloco original
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    bloco[i][j] = matriz[i_bloco + i][j_bloco + j];
-                }
-            }
-
-            // Aplica quantização
-            quantizar_bloco(bloco, Q, k);
-
-            // Copia de volta
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    saida[i_bloco + i][j_bloco + j] = bloco[i][j];
-                }
-            }
-        }
-    }
-
-    return saida;
-}
-
-YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
-{
-    YCbCrImg quantizado;
-
-    quantizado.height = img_dct.height;
-    quantizado.width = img_dct.width;
-
-    // Canal Y usa matriz Q_Y
-    quantizado.Y = quantizar_matriz(img_dct.Y, img_dct.height, img_dct.width, Q_Y, k);
-
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
-    quantizado.Cb = quantizar_matriz(img_dct.Cb, img_dct.height / 2, img_dct.width / 2, Q_C, k);
-    quantizado.Cr = quantizar_matriz(img_dct.Cr, img_dct.height / 2, img_dct.width / 2, Q_C, k);
-
-    return quantizado;
-}
-
-void desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
-{
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            bloco[i][j] = bloco[i][j] * Q[i][j] * k;
-        }
-    }
-}
-
-double** desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
-{
-    double** saida = malloc(altura * sizeof(double*));
-    for (int i = 0; i < altura; i++) {
-        saida[i] = malloc(largura * sizeof(double));
-    }
-
-    double bloco[8][8];
-
-    for (int i_bloco = 0; i_bloco < altura; i_bloco += 8) {
-        for (int j_bloco = 0; j_bloco < largura; j_bloco += 8) {
-
-            // Copia o bloco original
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    bloco[i][j] = matriz[i_bloco + i][j_bloco + j];
-                }
-            }
-
-            // Aplica desquantização
-            desquantizar_bloco(bloco, Q, k);
-
-            // Copia de volta
-            for (int i = 0; i < 8; i++) {
-                for (int j = 0; j < 8; j++) {
-                    saida[i_bloco + i][j_bloco + j] = bloco[i][j];
-                }
-            }
-        }
-    }
-
-    return saida;
-}
-
-YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
-{
-    YCbCrImg desquantizado;
-
-    desquantizado.height = quantizado.height;
-    desquantizado.width = quantizado.width;
-
-    // Canal Y usa matriz Q_Y
-    desquantizado.Y = desquantizar_matriz(quantizado.Y, quantizado.height, quantizado.width, Q_Y, k);
-
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
-    desquantizado.Cb = desquantizar_matriz(quantizado.Cb, quantizado.height / 2, quantizado.width / 2, Q_C, k);
-    desquantizado.Cr = desquantizar_matriz(quantizado.Cr, quantizado.height / 2, quantizado.width / 2, Q_C, k);
-
-    return desquantizado;
-}
-
-int* aplicar_zigzag(double bloco[8][8])
-{
-    int* vetor = malloc(64 * sizeof(int));
-
-    for (int i = 0; i < 64; i++) {
-        int x = zigzag[i][0];
-        int y = zigzag[i][1];
-        vetor[i] = (int)round(bloco[x][y]);  // pós-quantização, valores já são inteiros
-    }
-
-    return vetor;
-}
-
-int calcular_diferenca_dc(int atual, int anterior)
-{
-    return atual - anterior;
-}
-
-int aplicar_rle_ac(int vetor[64], Par_RLE* pares)
-{
-    int pos = 0;  // posição no vetor de saída
-    int run = 0;
-
-    for (int i = 1; i < 64; i++) {
-        if (vetor[i] == 0) {
-            run++;
-            if (run == 16) {
-                pares[pos++] = (Par_RLE){15, 0}; // código especial: 16 zeros
-                run = 0;
-            }
-        } else {
-            pares[pos++] = (Par_RLE){run, vetor[i]};
-            run = 0;
-        }
-    }
-
-    if (run > 0) {
-        pares[pos++] = (Par_RLE){0, 0}; // End of Block
-    }
-
-    return pos; // quantidade de pares gerados
-}
-
-int codificar_bloco(int bloco[8][8], int dc_anterior, int* diferenca_dc, Par_RLE* ac_pares)
-{
-     int *vetor = aplicar_zigzag(bloco); // nova função
-
-    *diferenca_dc = calcular_diferenca_dc(vetor[0], dc_anterior);
-
-    int n_pares = aplicar_rle_ac(vetor, ac_pares);
-
-    free(vetor); // liberar memória alocada
-    return n_pares;
-}
-
-
