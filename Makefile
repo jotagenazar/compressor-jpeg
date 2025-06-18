@@ -2,7 +2,7 @@ CC = gcc
 DEBUG = -g3 -fsanitize=address -Wall
 CFLAGS = -std=c99 -lm $(DEBUG) # remova o debug quando nao for utilizar suas flags
 
-TARGET = jpegtools
+TARGET = compressor-jpeg
 
 SRCS = ${wildcard src/*.c} 
 HDRS = ${wildcard include/*.h}

@@ -116,7 +116,7 @@ int main()
             liberar_YCbCr(YCbCr_img);
 
             // Aplicação transformação DCT na YCbCr
-            YCbCrImg YCbCr_freq = executar_DCT(YCbCr_img_downsampled);
+            YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
             liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
             // Quantização da imagem YCbCr no domínio das frequencias
@@ -125,6 +125,9 @@ int main()
 
 
             // Codificação
+
+
+            liberar_YCbCr_downsampled(YCbCr_quantizado);
 
             break;
         }
@@ -197,7 +200,7 @@ void TESTE()
     liberar_YCbCr(YCbCr_img);
 
     // Aplicação transformação DCT na YCbCr
-    YCbCrImg YCbCr_freq = executar_DCT(YCbCr_img_downsampled);
+    YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
     liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
     // Quantização da imagem YCbCr no domínio das frequencias
@@ -205,10 +208,9 @@ void TESTE()
     liberar_YCbCr_downsampled(YCbCr_freq);
 
 
-
-
     YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
     liberar_YCbCr_downsampled(YCbCr_quantizado);
+
 
     YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_desquantizado);
     liberar_YCbCr_downsampled(YCbCr_desquantizado);
