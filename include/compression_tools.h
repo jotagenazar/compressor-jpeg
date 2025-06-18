@@ -27,8 +27,6 @@ compressão JPEG de imagens YCbCr no domínio das frequências e funções de co
 
 extern const int zigzag[64][2];
 
-extern const HuffmanCode HUFFMAN_DC[12];
-
 
 /************************************
 * TYPEDEFS AND STRUCTS

@@ -18,6 +18,8 @@ João Pedro Mori Machado
 #include "../include/compression_tools.h"
 
 
+void TESTE();
+
 
 int main() 
 {   
@@ -49,8 +51,8 @@ int main()
     // execução das operações
     switch(op_id)
     {
-        //comprimir imagem lossless
-        case 1:
+        case 1: //comprimir imagem lossless
+        {
             printf("Caminho da imagem *.bmp a ser comprimida: ");
             scanf(" %s", input_filename);
 
@@ -74,10 +76,10 @@ int main()
             // codificação
 
             break;
+        }
 
-
-        //comprimir imagem lossy
-        case 2:
+        case 2: //comprimir imagem lossy
+        {
             printf("Caminho da imagem *.bmp a ser comprimida: ");
             scanf(" %s", input_filename);
 
@@ -125,10 +127,11 @@ int main()
             // Codificação
 
             break;
+        }
 
 
-        // descomprimir imagem
-        case 3: 
+        case 3: // descomprimir imagem
+        {
             printf("Caminho da imagem comprimida a ser descomprimida: ");
             scanf(" %s", input_filename);
 
@@ -139,16 +142,21 @@ int main()
             // Codificação
 
             break;
+        }
 
 
-        // sair do programa
-        case 0:
+        case 0: // sair do programa
+        {
             return 0;
             break;
+        }
 
 
         default:
+        {
             printf("\nO valor de seleção da operação digitado é inválido.\n");
+            break;
+        }
     }
 
     return 0;
