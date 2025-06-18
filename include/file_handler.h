@@ -19,11 +19,6 @@ de arquivos, definição de estruturas de header e funçòes de exportação de 
 
 
 /************************************
-* MACROS AND DEFINES
-*************************************/
-
-
-/************************************
 * TYPEDEFS AND STRUCTS
 *************************************/
 
