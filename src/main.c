@@ -116,7 +116,7 @@ int main()
             liberar_YCbCr(YCbCr_img);
 
             // Aplicação transformação DCT na YCbCr
-            YCbCrImg YCbCr_freq = executar_DCT(YCbCr_img_downsampled);
+            YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
             liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
             // Quantização da imagem YCbCr no domínio das frequencias
@@ -200,7 +200,7 @@ void TESTE()
     liberar_YCbCr(YCbCr_img);
 
     // Aplicação transformação DCT na YCbCr
-    YCbCrImg YCbCr_freq = executar_DCT(YCbCr_img_downsampled);
+    YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
     liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
     // Quantização da imagem YCbCr no domínio das frequencias
@@ -213,11 +213,11 @@ void TESTE()
     YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
     liberar_YCbCr_downsampled(YCbCr_quantizado);
 
-    YCbCrImg YCbCr_IDCT = executar_IDCT(YCbCr_desquantizado);
+    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
     liberar_YCbCr_downsampled(YCbCr_desquantizado);
 
     YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
-    liberar_YCbCr_downsampled(YCbCr_IDCT);
+    liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
     RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
 

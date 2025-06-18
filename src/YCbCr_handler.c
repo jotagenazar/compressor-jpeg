@@ -498,14 +498,15 @@ YCbCrImg downsample_YCbCr(YCbCrImg YCbCr_img)
     {
         for (int j = 0; j < width_pad; j += DOWNSAMPLE_DIVISOR) 
         {   
-
             // calculo da soma dos valores dos pixels dentro daquele bloco que sofrerá downsampling
+            cb_soma = 0.0;
+            cr_soma = 0.0;
             for(int i_sum = 0; i_sum < DOWNSAMPLE_DIVISOR; i_sum++) 
             {
                 for(int j_sum = 0; j_sum < DOWNSAMPLE_DIVISOR; j_sum++) 
                 {
-                    cb_soma = YCbCr_padded.Cb[i + i_sum][j + j_sum];
-                    cr_soma = YCbCr_padded.Cr[i + i_sum][j + j_sum];
+                    cb_soma += YCbCr_padded.Cb[i + i_sum][j + j_sum];
+                    cr_soma += YCbCr_padded.Cr[i + i_sum][j + j_sum];
                 }
             }
             
@@ -571,9 +572,9 @@ YCbCrImg aplicar_DCT_YCbCr(YCbCrImg YCbCr_img)
     YCbCr_DCT.width = YCbCr_img.width;
     YCbCr_DCT.height = YCbCr_img.height;
 
-    YCbCr_DCT.Y  = aplicar_DCT(YCbCr_img.Y, YCbCr_img.height, YCbCr_img.width);
-    YCbCr_DCT.Cb = aplicar_DCT(YCbCr_img.Cb, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
-    YCbCr_DCT.Cr = aplicar_DCT(YCbCr_img.Cr, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_DCT.Y  = _aplicar_DCT_matriz(YCbCr_img.Y, YCbCr_img.height, YCbCr_img.width);
+    YCbCr_DCT.Cb = _aplicar_DCT_matriz(YCbCr_img.Cb, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_DCT.Cr = _aplicar_DCT_matriz(YCbCr_img.Cr, YCbCr_img.height / DOWNSAMPLE_DIVISOR, YCbCr_img.width / DOWNSAMPLE_DIVISOR);
 
     return YCbCr_DCT;
 }
@@ -586,9 +587,9 @@ YCbCrImg aplicar_IDCT_YCbCr(YCbCrImg YCbCr_DCT)
     YCbCr_img.width = YCbCr_DCT.width;
     YCbCr_img.height = YCbCr_DCT.height;
 
-    YCbCr_img.Y  = aplicar_IDCT(YCbCr_DCT.Y, YCbCr_DCT.height, YCbCr_DCT.width);
-    YCbCr_img.Cb = aplicar_IDCT(YCbCr_DCT.Cb, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
-    YCbCr_img.Cr = aplicar_IDCT(YCbCr_DCT.Cr, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_img.Y  = _aplicar_IDCT_matriz(YCbCr_DCT.Y, YCbCr_DCT.height, YCbCr_DCT.width);
+    YCbCr_img.Cb = _aplicar_IDCT_matriz(YCbCr_DCT.Cb, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
+    YCbCr_img.Cr = _aplicar_IDCT_matriz(YCbCr_DCT.Cr, YCbCr_DCT.height / DOWNSAMPLE_DIVISOR, YCbCr_DCT.width / DOWNSAMPLE_DIVISOR);
 
     return YCbCr_img;
 }
