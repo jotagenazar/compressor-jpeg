@@ -64,6 +64,13 @@ typedef struct {
     FILE* output_file;         
 } BitWriter;
 
+// Struct que auxilia a ler os bits escritos no arquivo final
+typedef struct {
+    FILE *input_file;
+    unsigned char byte_buffer;
+    int bit_count;
+} BitReader;
+
 
 /************************************
 * GLOBAL FUNCTION PROTOTYPES
@@ -77,6 +84,9 @@ YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k);
 YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 
 // Funcao que aplica a codificao entropica na imagem passado como parametro, e escreve em um arquivo de saída  
-void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida);
+void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k);
+
+// Funcao que desfaz a codificao entropica na imagem passado como parametro, e escreve os blocos decodificados na matriz YCbCr
+void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k);
 
 #endif

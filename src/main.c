@@ -23,6 +23,9 @@ void TESTE();
 
 int main() 
 {   
+    TESTE();
+    return 0;
+
     // impressão de opções
     printf("\n\nEscolha a operaçao que deseja realizar:\n\n");
     printf("[1] Comprimir uma imagem *.bmp sem perdas\n");
@@ -88,10 +91,9 @@ int main()
                 // escreve os headers bmp da imagem original
                 escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
 
-
                 fwrite(&k, sizeof(double), 1, output_file);
 
-                executar_compressao_entropica(YCbCr_img, output_file, k);
+                executar_codificacao_entropica(YCbCr_img, output_file, k);
 
                 // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
                 output_size = ftell(output_file); 
@@ -169,7 +171,7 @@ int main()
                 // escreve o fator k usado para comprimir a imagem
                 fwrite(&k, sizeof(double), 1, output_file);
 
-                executar_compressao_entropica(YCbCr_quantizado, output_file, k);
+                executar_codificacao_entropica(YCbCr_quantizado, output_file, k);
 
                 // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
                 output_size = ftell(output_file); 
@@ -188,42 +190,42 @@ int main()
         }
 
 
-        // case 3: // descomprimir imagem
-        // {
-        //     printf("Caminho da imagem comprimida a ser descomprimida: ");
-        //     scanf(" %s", input_filename);
+        case 3: // descomprimir imagem
+        {
+            // printf("Caminho da imagem comprimida a ser descomprimida: ");
+            // scanf(" %s", input_filename);
 
-        //     printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
-        //     scanf(" %s", output_filename);
+            // printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
+            // scanf(" %s", output_filename);
 
-        //     // Leitura do arquivo e headers bmp
-        //     FILE *input_file = abrir_arquivo(input_filename, "rb");
+            // // Leitura do arquivo e headers bmp
+            // FILE *input_file = abrir_arquivo(input_filename, "rb");
 
-        //         // leitura e importação do header do arquivo e do header da imagem
-        //         BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
-        //         BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
+            //     // leitura e importação do header do arquivo e do header da imagem
+            //     BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+            //     BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
 
-        //         // leitura do K
-        //         fread(&k, sizeof(double), 1, input_file);
+            //     // leitura do K
+            //     fread(&k, sizeof(double), 1, input_file);
 
                 
 
-        //     fclose(input_file);
+            // fclose(input_file);
 
-        //     if(k != 0)
-        //     {
+            // if(k != 0)
+            // {
                 
-        //     }
+            // }
 
-        //     RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+            // RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
 
-        //     YCbCr_to_RGB(YCbCr_up,  rgb_final);
+            // YCbCr_to_RGB(YCbCr_up,  rgb_final);
 
-        //     exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
-        //     printf("Imagem salva como imagem_saida.bmp\n");
+            // exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
+            // printf("Imagem salva como imagem_saida.bmp\n");
 
-        //     break;
-        // }
+            // break;
+        }
 
 
         case 0: // sair do programa
@@ -252,7 +254,7 @@ void TESTE()
     scanf(" %s", input_filename);
 
     // Leitura do arquivo bmp para as structs de header e matriz RGB
-     FILE *input_file = abrir_arquivo(input_filename, "rb");
+    FILE *input_file = abrir_arquivo(input_filename, "rb");
 
         // leitura e importação do header do arquivo e do header da imagem
         BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
@@ -285,10 +287,39 @@ void TESTE()
     YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 1.0);
     liberar_YCbCr_downsampled(YCbCr_freq);
 
+    double k = 1.0;
+    // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
+    FILE *output_file = abrir_arquivo("output_file", "wb");
 
-    YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 1.0);
+        // repete os headers bmp da imagem original
+        escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
+
+        // escreve o fator k usado para comprimir a imagem
+        fwrite(&k, sizeof(double), 1, output_file);
+
+        executar_codificacao_entropica(YCbCr_quantizado, output_file, k);
+
+    fclose(output_file);
+
     liberar_YCbCr_downsampled(YCbCr_quantizado);
 
+    input_file = abrir_arquivo("output_file", "rb");
+
+        // leitura e importação do header do arquivo e do header da imagem
+        bmp_file_header = ler_bmp_file_header(input_file);
+        bmp_info_header = ler_bmp_info_header(input_file);
+
+        // leitura do K
+        fread(&k, sizeof(double), 1, input_file);
+
+        YCbCr_img = alocar_YCbCr_downsampled(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+        executar_decodificacao_entropica(YCbCr_img, input_file, k);
+
+    fclose(output_file);
+
+    YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_img, k);
+    liberar_YCbCr_downsampled(YCbCr_img);
 
     YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
     liberar_YCbCr_downsampled(YCbCr_desquantizado);
