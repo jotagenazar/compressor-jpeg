@@ -60,6 +60,7 @@ const char* huffman_dc_lum_codes[12] = {
     "111110",   // Categoria 8
     "1111110",  // Categoria 9
     "11111110", // Categoria A (10)
+    "111111110" // Categoria B (11)
 };
 
 // Tabela 4 - Prefixos para o Coeficiente AC
@@ -128,6 +129,19 @@ void _escreve_bits(BitWriter* writer, const char* bit_string);
 
 // Função para escrever os bits restantes no final do processo
 void _flush_bits(BitWriter* writer); 
+
+// Inicializa o leitor de bits do arquivo
+void _init_bit_reader(BitReader *reader, FILE *file);
+
+// Lê um bit do arquivo e armazena na struct
+int _read_bit(BitReader *reader);
+
+// Lê multiplos bits de um arquivo e armazena na struct
+int _read_bits(BitReader *reader, int n, int *value_out);
+
+int _decode_huffman_dc(BitReader *reader);
+void _inverter_zigzag(int vetor[64], double bloco[8][8]);
+int _read_mantissa(BitReader *reader, int categoria);
 
 /************************************
 * STATIC FUNCTIONS
@@ -307,8 +321,14 @@ int _get_categoria(int coeficiente)
     if (abs_val <= 1023) return 10; // Categoria 'A' -> Faixa de valores: -1023, ..., -512, 512, ..., 1023
     if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
 
-    
-    return -1; 
+
+    // Problema que enfrentamos:
+    // Tabela 2 apresenta categoria B para DC, tabela 3 não possui. Criamos categoria B na tabela DC
+    // seguindo o padrão estabelecido e contornamos a inconsistência
+
+    // Se o número for maior que o suportado, retorna um erro ou um valor inválido.
+    // Para este trabalho, os valores não devem exceder 2047.
+    return -1; // Valor de erro
 }
 
 
@@ -367,6 +387,144 @@ void _flush_bits(BitWriter* writer)
     }
 }
 
+void _init_bit_reader(BitReader *reader, FILE *file) {
+    reader->input_file = file;
+    reader->bit_count = 0;
+    reader->byte_buffer = 0;
+}
+
+int _read_bit(BitReader *reader) {
+    if (reader->bit_count == 0) {
+        size_t lidos = fread(&reader->byte_buffer, 1, 1, reader->input_file);
+        if (lidos != 1) return -1; // EOF ou erro
+        reader->bit_count = 8;
+    }
+
+    int bit = (reader->byte_buffer >> 7) & 1;
+    reader->byte_buffer <<= 1;
+    reader->bit_count--;
+    return bit;
+}
+
+int _read_bits(BitReader *reader, int n, int *value_out) {
+    *value_out = 0;
+    for (int i = 0; i < n; i++) {
+        int bit = _read_bit(reader);
+        if (bit == -1) return -1; // EOF ou erro
+        *value_out = (*value_out << 1) | bit;
+    }
+    return 0;
+}
+
+int _decode_huffman_dc(BitReader *reader) {
+    char code[17] = {0};
+    int bit_val;
+    
+    for (int i = 0; i < 16; i++) {
+        bit_val = _read_bit(reader);
+        if (bit_val == -1) return -1; // Fim do arquivo
+        code[i] = bit_val + '0';
+        code[i+1] = '\0';
+        
+        // OBS: Tabela DC de luminância usada para tudo (simplificação do projeto)
+        for (int cat = 0; cat < 12; cat++) {
+            if (huffman_dc_lum_codes[cat] && strcmp(code, huffman_dc_lum_codes[cat]) == 0) {
+                return cat; // Retorna a categoria encontrada
+            }
+        }
+    }
+    return -1; // Código não encontrado
+}
+
+int _read_mantissa(BitReader *reader, int categoria) {
+    if (categoria == 0) return 0;
+
+    int valor;
+    _read_bits(reader, categoria, &valor);
+
+    // Verifica se o bit mais significativo é 0 → valor negativo (mantissa invertida)
+    if ((valor >> (categoria - 1)) == 0) {
+        valor -= (1 << categoria) - 1;
+    }
+
+    return valor;
+}
+
+int _decode_huffman_ac(BitReader *reader, int *run, int *category) {
+    char code[17] = {0};
+    int bit_val;
+
+    for (int i = 0; i < 16; i++) {
+        bit_val = _read_bit(reader);
+        if (bit_val == -1) return -1;
+        code[i] = bit_val + '0';
+        code[i+1] = '\0';
+
+        // OBS: Tabela AC de luminância usada para tudo (simplificação do projeto)
+        for (int r = 0; r < 16; r++) { // run
+            for (int s = 0; s < 11; s++) { // size/category
+                if (huffman_ac_lum_codes[r][s] && strcmp(code, huffman_ac_lum_codes[r][s]) == 0) {
+                    *run = r;
+                    *category = s;
+                    return 0; // Sucesso
+                }
+            }
+        }
+    }
+    return -1; // Código não encontrado
+}
+
+void _inverter_zigzag(int vetor[64], double bloco[8][8]) {
+    for (int i = 0; i < 64; i++) {
+        int x = zigzag[i][0];
+        int y = zigzag[i][1];
+        bloco[x][y] = vetor[i];
+    }
+}
+
+void _decodificar_bloco(BitReader *reader, int *dc_anterior, double bloco_saida[8][8]) {
+    int zig_zag_vetor[64] = {0};
+
+    // 1. Decodificar Coeficiente DC
+    int dc_cat = _decode_huffman_dc(reader);
+    if (dc_cat == -1) return; // Erro ou fim de arquivo
+
+    int dc_diff = _read_mantissa(reader, dc_cat);
+    int dc_atual = *dc_anterior + dc_diff;
+    zig_zag_vetor[0] = dc_atual;
+    *dc_anterior = dc_atual;
+
+    // 2. Decodificar 63 Coeficientes AC
+    int i = 1;
+    while (i < 64) {
+        int run, category;
+        if (_decode_huffman_ac(reader, &run, &category) != 0) {
+            break; // Erro ou fim do arquivo
+        }
+
+        if (run == 0 && category == 0) { // EOB (End of Block)
+            break; // Resto do vetor já é 0, então podemos parar
+        }
+        
+        if (run == 15 && category == 0) { // ZRL (Zero Run Length)
+            i += 16; // Pula 16 zeros
+            continue;
+        }
+
+        // Adiciona os zeros precedentes
+        i += run;
+
+        if (i < 64) {
+            int ac_val = _read_mantissa(reader, category);
+            zig_zag_vetor[i] = ac_val;
+            i++;
+        }
+    }
+    
+    // 3. Inverter o Zig-Zag para reconstruir o bloco 8x8
+    _inverter_zigzag(zig_zag_vetor, bloco_saida);
+}
+
 /************************************
 * GLOBAL FUNCTIONS
 ************************************/
@@ -409,10 +567,9 @@ YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
 }
 
 
-void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida) 
+void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k) 
 {
-
-    // Inicializa o escritor de bits
+    // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
     
     // Variáveis de controle para a codificação diferencial de cada componente
@@ -443,7 +600,9 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
             // --- Escreve os bits do bloco no arquivo ---
 
             // A. Codifica o coeficiente DC
+
             int dc_cat = _get_categoria(bloco_codificado.DC_dif);
+          
             const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
             _escreve_bits(&writer, dc_prefixo);
@@ -462,7 +621,9 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
                     _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } 
                 else { // Par RLE normal
+
                     int ac_cat = _get_categoria(par.coeficiente);
+
                     const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
                     _escreve_bits(&writer, ac_prefixo);
@@ -540,7 +701,65 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
     }
 
     // 2. Finaliza a escrita, descarregando quaisquer bits restantes no buffer
-    flush_bits(&writer);
+    _flush_bits(&writer);
 
+}
+
+void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k) {
+    BitReader reader;
+    _init_bit_reader(&reader, arquivo);
+
+    int divisor = (k == 0) ? 1 : DOWNSAMPLE_DIVISOR;
+
+    int dc_anterior_Y = 0;
+    int dc_anterior_Cb = 0;
+    int dc_anterior_Cr = 0;
+
+    double bloco_decodificado[8][8];
+
+    // === Canal Y ===
+    for (int i_bloco = 0; i_bloco < img.height; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < img.width; j_bloco += 8) {
+            _decodificar_bloco(&reader, &dc_anterior_Y, bloco_decodificado);
+            
+            // Copia o bloco decodificado para a matriz Y da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Y[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
+                }
+            }
+        }
+    }
+
+    // === Canal Cb ===
+    int altura_chroma = img.height / divisor;
+    int largura_chroma = img.width / divisor;
+
+    for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
+            _decodificar_bloco(&reader, &dc_anterior_Cb, bloco_decodificado);
+
+            // Copia o bloco decodificado para a matriz Cb da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Cb[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
+                }
+            }
+        }
+    }
+
+    // === Canal Cr ===
+    for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
+        for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
+            _decodificar_bloco(&reader, &dc_anterior_Cr, bloco_decodificado);
+
+            // Copia o bloco decodificado para a matriz Cr da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Cr[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
+                }
+            }
+        }
+    }
 }
 
