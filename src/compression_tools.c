@@ -147,6 +147,10 @@ int _read_bit(BitReader *reader);
 // Lê multiplos bits de um arquivo e armazena na struct
 int _read_bits(BitReader *reader, int n, int *value_out);
 
+int _decode_huffman_dc(BitReader *reader);
+void _inverter_zigzag(int vetor[64], double bloco[8][8]);
+int _read_mantissa(BitReader *reader, int categoria);
+
 /************************************
 * STATIC FUNCTIONS
 ************************************/
@@ -320,7 +324,12 @@ int _get_category(int coeficiente)
     if (abs_val <= 255) return 8; // Faixa de valores: -255, ..., -128, 128, ..., 255
     if (abs_val <= 511) return 9; // Faixa de valores: -511, ..., -256, 256, ..., 511
     if (abs_val <= 1023) return 10; // Categoria 'A' -> Faixa de valores: -1023, ..., -512, 512, ..., 1023
-    if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
+    
+    // Linha criada baseada na Tabela 2, removida pois a tabela 3 nao apresenta categoria B
+    //if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
+
+    // Assumindo que a categoria máxima é 10 (A), conforme Tabela 3, ignorando a inconsistência
+    if (abs_val > 1023 && abs_val < 2048) return 10;
 
     // Se o número for maior que o suportado, retorna um erro ou um valor inválido.
     // Para este trabalho, os valores não devem exceder 2047.
@@ -413,24 +422,23 @@ int _read_bits(BitReader *reader, int n, int *value_out) {
 }
 
 int _decode_huffman_dc(BitReader *reader) {
-    char buffer[17] = {0};
-
-    for (int len = 1; len <= 11; len++) {
-        for (int i = 0; i < len; i++) {
-            int bit = _read_bit(reader);
-            if (bit == -1) return -1;
-            buffer[i] = bit ? '1' : '0';
-        }
-        buffer[len] = '\0';
-
-        for (int cat = 0; cat < 11; cat++) {
-            if (huffman_dc_lum_codes[cat] && strcmp(buffer, huffman_dc_lum_codes[cat]) == 0) {
-                return cat;
+    char code[17] = {0};
+    int bit_val;
+    
+    for (int i = 0; i < 16; i++) {
+        bit_val = _read_bit(reader);
+        if (bit_val == -1) return -1; // Fim do arquivo
+        code[i] = bit_val + '0';
+        code[i+1] = '\0';
+        
+        // OBS: Tabela DC de luminância usada para tudo (simplificação do projeto)
+        for (int cat = 0; cat < 12; cat++) {
+            if (huffman_dc_lum_codes[cat] && strcmp(code, huffman_dc_lum_codes[cat]) == 0) {
+                return cat; // Retorna a categoria encontrada
             }
         }
     }
-
-    return -1; // erro
+    return -1; // Código não encontrado
 }
 
 int _read_mantissa(BitReader *reader, int categoria) {
@@ -447,6 +455,30 @@ int _read_mantissa(BitReader *reader, int categoria) {
     return valor;
 }
 
+int _decode_huffman_ac(BitReader *reader, int *run, int *category) {
+    char code[17] = {0};
+    int bit_val;
+
+    for (int i = 0; i < 16; i++) {
+        bit_val = _read_bit(reader);
+        if (bit_val == -1) return -1;
+        code[i] = bit_val + '0';
+        code[i+1] = '\0';
+
+        // OBS: Tabela AC de luminância usada para tudo (simplificação do projeto)
+        for (int r = 0; r < 16; r++) { // run
+            for (int s = 0; s < 11; s++) { // size/category
+                if (huffman_ac_lum_codes[r][s] && strcmp(code, huffman_ac_lum_codes[r][s]) == 0) {
+                    *run = r;
+                    *category = s;
+                    return 0; // Sucesso
+                }
+            }
+        }
+    }
+    return -1; // Código não encontrado
+}
+
 void _inverter_zigzag(int vetor[64], double bloco[8][8]) {
     for (int i = 0; i < 64; i++) {
         int x = zigzag[i][0];
@@ -455,64 +487,47 @@ void _inverter_zigzag(int vetor[64], double bloco[8][8]) {
     }
 }
 
-BLOCO_CODIFICADO _decodificar_bloco(BitReader *reader, int *dc_anterior) {
-    BLOCO_CODIFICADO bloco;
-    int vetor_zigzag[64] = {0};
-    int categoria_dc = _decode_huffman_dc(reader);
-    int dif_dc = _read_mantissa(reader, categoria_dc);
+void _decodificar_bloco(BitReader *reader, int *dc_anterior, double bloco_saida[8][8]) {
+    int zig_zag_vetor[64] = {0};
 
-    vetor_zigzag[0] = *dc_anterior + dif_dc;
-    bloco.DC_dif = dif_dc;
-    *dc_anterior = vetor_zigzag[0];
+    // 1. Decodificar Coeficiente DC
+    int dc_cat = _decode_huffman_dc(reader);
+    if (dc_cat == -1) return; // Erro ou fim de arquivo
 
+    int dc_diff = _read_mantissa(reader, dc_cat);
+    int dc_atual = *dc_anterior + dc_diff;
+    zig_zag_vetor[0] = dc_atual;
+    *dc_anterior = dc_atual;
+
+    // 2. Decodificar 63 Coeficientes AC
     int i = 1;
-    bloco.qtd_pares = 0;
-
     while (i < 64) {
-        char buffer[17] = {0};
-        for (int len = 1; len <= 16; len++) {
-            for (int j = 0; j < len; j++) {
-                int bit = _read_bit(reader);
-                if (bit == -1) return bloco;
-                buffer[j] = bit ? '1' : '0';
-            }
-            buffer[len] = '\0';
+        int run, category;
+        if (_decode_huffman_ac(reader, &run, &category) != 0) {
+            break; // Erro ou fim do arquivo
+        }
 
-            int match = 0;
-            for (int z = 0; z < 16; z++) {
-                for (int cat = 0; cat <= 10; cat++) {
-                    const char *code = huffman_ac_lum_codes[z][cat];
-                    if (code && strcmp(buffer, code) == 0) {
-                        // ZRL
-                        if (z == 15 && cat == 0) {
-                            for (int k = 0; k < 16 && i < 64; k++) vetor_zigzag[i++] = 0;
-                            match = 1; break;
-                        }
+        if (run == 0 && category == 0) { // EOB (End of Block)
+            break; // Resto do vetor já é 0, então podemos parar
+        }
+        
+        if (run == 15 && category == 0) { // ZRL (Zero Run Length)
+            i += 16; // Pula 16 zeros
+            continue;
+        }
 
-                        // EOB
-                        if (z == 0 && cat == 0) {
-                            match = 1; i = 64; break;
-                        }
+        // Adiciona os zeros precedentes
+        i += run;
 
-                        int val = _read_mantissa(reader, cat);
-                        for (int k = 0; k < z && i < 64; k++) vetor_zigzag[i++] = 0;
-                        vetor_zigzag[i++] = val;
-
-                        bloco.vetor_par_rle[bloco.qtd_pares++] = (Par_RLE){z, val};
-                        match = 1; break;
-                    }
-                }
-                if (match) break;
-            }
-            if (match) break;
+        if (i < 64) {
+            int ac_val = _read_mantissa(reader, category);
+            zig_zag_vetor[i] = ac_val;
+            i++;
         }
     }
-
-    double matriz_bloco[8][8];
-    _inverter_zigzag(vetor_zigzag, matriz_bloco);
-    // opcionalmente copie matriz_bloco para fora
-
-    return bloco;
+    
+    // 3. Inverter o Zig-Zag para reconstruir o bloco 8x8
+    _inverter_zigzag(zig_zag_vetor, bloco_saida);
 }
 
 /************************************
@@ -562,7 +577,6 @@ YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
  */
 void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k) 
 {
-
     // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
     
@@ -705,37 +719,19 @@ void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k) {
     int dc_anterior_Cb = 0;
     int dc_anterior_Cr = 0;
 
-    double bloco[8][8];
-    BLOCO_CODIFICADO bloco_codificado;
+    double bloco_decodificado[8][8];
 
     // === Canal Y ===
     for (int i_bloco = 0; i_bloco < img.height; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < img.width; j_bloco += 8) {
-            bloco_codificado = _decodificar_bloco(&reader, &dc_anterior_Y);
-            int zigzag[64] = {0};
-            zigzag[0] = dc_anterior_Y;
-
-            int idx = 1;
-            for (int i = 0; i < bloco_codificado.qtd_pares && idx < 64; i++) {
-                Par_RLE par = bloco_codificado.vetor_par_rle[i];
-
-                if (par.zeros == 0 && par.coeficiente == 0) {
-                    break; // EOB
-                }
-
-                for (int z = 0; z < par.zeros && idx < 64; z++) {
-                    zigzag[idx++] = 0;
-                }
-                if (idx < 64) {
-                    zigzag[idx++] = par.coeficiente;
+            _decodificar_bloco(&reader, &dc_anterior_Y, bloco_decodificado);
+            
+            // Copia o bloco decodificado para a matriz Y da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Y[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
                 }
             }
-
-            _inverter_zigzag(zigzag, bloco);
-
-            for (int i = 0; i < 8; i++)
-                for (int j = 0; j < 8; j++)
-                    img.Y[i_bloco + i][j_bloco + j] = bloco[i][j];
         }
     }
 
@@ -745,62 +741,28 @@ void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k) {
 
     for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
-            bloco_codificado = _decodificar_bloco(&reader, &dc_anterior_Cb);
-            int zigzag[64] = {0};
-            zigzag[0] = dc_anterior_Cb;
+            _decodificar_bloco(&reader, &dc_anterior_Cb, bloco_decodificado);
 
-            int idx = 1;
-            for (int i = 0; i < bloco_codificado.qtd_pares && idx < 64; i++) {
-                Par_RLE par = bloco_codificado.vetor_par_rle[i];
-
-                if (par.zeros == 0 && par.coeficiente == 0) {
-                    break; // EOB
-                }
-
-                for (int z = 0; z < par.zeros && idx < 64; z++) {
-                    zigzag[idx++] = 0;
-                }
-                if (idx < 64) {
-                    zigzag[idx++] = par.coeficiente;
+            // Copia o bloco decodificado para a matriz Cb da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Cb[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
                 }
             }
-
-            _inverter_zigzag(zigzag, bloco);
-
-            for (int i = 0; i < 8; i++)
-                for (int j = 0; j < 8; j++)
-                    img.Cb[i_bloco + i][j_bloco + j] = bloco[i][j];
         }
     }
 
     // === Canal Cr ===
     for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
-            bloco_codificado = _decodificar_bloco(&reader, &dc_anterior_Cr);
-            int zigzag[64] = {0};
-            zigzag[0] = dc_anterior_Cr;
+            _decodificar_bloco(&reader, &dc_anterior_Cr, bloco_decodificado);
 
-            int idx = 1;
-            for (int i = 0; i < bloco_codificado.qtd_pares && idx < 64; i++) {
-                Par_RLE par = bloco_codificado.vetor_par_rle[i];
-
-                if (par.zeros == 0 && par.coeficiente == 0) {
-                    break; // EOB
-                }
-
-                for (int z = 0; z < par.zeros && idx < 64; z++) {
-                    zigzag[idx++] = 0;
-                }
-                if (idx < 64) {
-                    zigzag[idx++] = par.coeficiente;
+            // Copia o bloco decodificado para a matriz Cr da imagem
+            for (int i = 0; i < 8; i++) {
+                for (int j = 0; j < 8; j++) {
+                    img.Cr[i_bloco + i][j_bloco + j] = bloco_decodificado[i][j];
                 }
             }
-
-            _inverter_zigzag(zigzag, bloco);
-
-            for (int i = 0; i < 8; i++)
-                for (int j = 0; j < 8; j++)
-                    img.Cr[i_bloco + i][j_bloco + j] = bloco[i][j];
         }
     }
 }

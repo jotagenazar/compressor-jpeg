@@ -316,7 +316,7 @@ void TESTE()
 
         executar_decodificacao_entropica(YCbCr_img, input_file, k);
 
-    fclose(output_file);
+    fclose(input_file);
 
     YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_img, k);
     liberar_YCbCr_downsampled(YCbCr_img);
