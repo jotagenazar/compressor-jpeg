@@ -461,8 +461,8 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
     // ======================================================================
     // === PASSO 2: Processa o Canal de Crominância (Cb)
     // ======================================================================
-    int altura_chroma = img_quantizada.height / 2;
-    int largura_chroma = img_quantizada.width / 2;
+    int altura_chroma = img_quantizada.height / divisor;
+    int largura_chroma = img_quantizada.width / divisor;
 
     for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
