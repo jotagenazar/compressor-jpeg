@@ -357,28 +357,24 @@ void liberar_YCbCr(YCbCrImg YCbCr_img)
 
 YCbCrImg alocar_YCbCr_downsampled(int width, int height)
 {
-    // Criação da instância da struct e preenchimento dos valores
+    // Criação da instância da struct e preenchimento das dimensoes com o padding adequado
     YCbCrImg YCbCr_downsampled;
-    YCbCr_downsampled.height = height;
-    YCbCr_downsampled.width = width;
-
-    // calculo do padding necessário nas dimensões das matrizes Cb e Cr que sofrerão redução
-    int width_pad   = _calcular_dim_com_padding_YCbCr(width);
-    int height_pad  = _calcular_dim_com_padding_YCbCr(height);
+    YCbCr_downsampled.height = _calcular_dim_com_padding_YCbCr(height);
+    YCbCr_downsampled.width = _calcular_dim_com_padding_YCbCr(width);
 
     // alocação das matrizes YCbCr a partir dos valores com padding da redução
-    YCbCr_downsampled.Y =   malloc(YCbCr_downsampled.height             * sizeof(double*));
-    YCbCr_downsampled.Cb =  malloc((height_pad / DOWNSAMPLE_DIVISOR)    * sizeof(double*));
-    YCbCr_downsampled.Cr =  malloc((height_pad / DOWNSAMPLE_DIVISOR)    * sizeof(double*));
+    YCbCr_downsampled.Y =   malloc(YCbCr_downsampled.height                         * sizeof(double*));
+    YCbCr_downsampled.Cb =  malloc((YCbCr_downsampled.height / DOWNSAMPLE_DIVISOR)  * sizeof(double*));
+    YCbCr_downsampled.Cr =  malloc((YCbCr_downsampled.height / DOWNSAMPLE_DIVISOR)  * sizeof(double*));
 
-    for (int i = 0; i < height; i++) 
+    for (int i = 0; i < YCbCr_downsampled.height; i++) 
     {
-        YCbCr_downsampled.Y[i] = malloc(width * sizeof(double));
+        YCbCr_downsampled.Y[i] = malloc(YCbCr_downsampled.width * sizeof(double));
     }
-    for (int i = 0; i < height / DOWNSAMPLE_DIVISOR; i++) 
+    for (int i = 0; i < YCbCr_downsampled.height / DOWNSAMPLE_DIVISOR; i++) 
     {
-        YCbCr_downsampled.Cb[i] = malloc((width_pad / DOWNSAMPLE_DIVISOR) * sizeof(double));
-        YCbCr_downsampled.Cr[i] = malloc((width_pad / DOWNSAMPLE_DIVISOR) * sizeof(double));
+        YCbCr_downsampled.Cb[i] = malloc((YCbCr_downsampled.width / DOWNSAMPLE_DIVISOR) * sizeof(double));
+        YCbCr_downsampled.Cr[i] = malloc((YCbCr_downsampled.width / DOWNSAMPLE_DIVISOR) * sizeof(double));
     }
 
     return YCbCr_downsampled;

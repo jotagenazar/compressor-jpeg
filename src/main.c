@@ -29,8 +29,8 @@ int main()
     // return 0;
 
     // execução do teste completo escrevendo no arquivo, trecho sera apagado na versão final
-    TESTE();
-    return 0;
+    // TESTE();
+    // return 0;
 
     // impressão de opções
     printf("\n\nEscolha a operaçao que deseja realizar:\n\n");
