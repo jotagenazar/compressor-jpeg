@@ -23,11 +23,6 @@ void TESTE();
 
 int main() 
 {   
-    // jogando a main pro teste antigo, quanto terminar apagamos essa linha
-    TESTE();
-    return 0;
-
-
     // impressão de opções
     printf("\n\nEscolha a operaçao que deseja realizar:\n\n");
     printf("[1] Comprimir uma imagem *.bmp sem perdas\n");
@@ -48,6 +43,7 @@ int main()
     char output_filename[100];
     int input_size;
     int output_size;
+    double k;
 
     // execução das operações
     switch(op_id)
@@ -84,12 +80,14 @@ int main()
             liberar_RGB(rgb_img);
 
             // não houve compressão, o fator k da quantização usado foi 0
-            double k = 0;
+            k = 0;
 
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
             FILE *output_file = abrir_arquivo(output_filename, "wb");
 
+                // escreve os headers bmp da imagem original
                 escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
+
 
                 fwrite(&k, sizeof(double), 1, output_file);
 
@@ -119,7 +117,6 @@ int main()
             scanf(" %s", output_filename);
 
             printf("Fator k de compressão da imagem (recomendado: 5): ");
-            double k;
             scanf(" %lf", &k);
 
 
@@ -159,21 +156,26 @@ int main()
             YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, k);
             liberar_YCbCr_downsampled(YCbCr_freq);
 
+            // atualiza os valores do cabeçalho bmp caso a imagem tenha recebido padding
+            bmp_info_header.biWidth  = YCbCr_quantizado.width;
+            bmp_info_header.biHeight = YCbCr_quantizado.height;
 
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
             FILE *output_file = abrir_arquivo(output_filename, "wb");
 
+                // repete os headers bmp da imagem original
                 escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
 
+                // escreve o fator k usado para comprimir a imagem
                 fwrite(&k, sizeof(double), 1, output_file);
 
-                executar_compressao_entropica(YCbCr_img, output_file, k);
+                executar_compressao_entropica(YCbCr_quantizado, output_file, k);
 
                 // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
                 output_size = ftell(output_file); 
 
             fclose(output_file);
-            
+
 
             printf("\nImagem comprimida e salva em %s\n", output_filename);
 
@@ -186,19 +188,42 @@ int main()
         }
 
 
-        case 3: // descomprimir imagem
-        {
-            printf("Caminho da imagem comprimida a ser descomprimida: ");
-            scanf(" %s", input_filename);
+        // case 3: // descomprimir imagem
+        // {
+        //     printf("Caminho da imagem comprimida a ser descomprimida: ");
+        //     scanf(" %s", input_filename);
 
-            printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
-            scanf(" %s", output_filename);
+        //     printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
+        //     scanf(" %s", output_filename);
 
+        //     // Leitura do arquivo e headers bmp
+        //     FILE *input_file = abrir_arquivo(input_filename, "rb");
 
-            // Codificação
+        //         // leitura e importação do header do arquivo e do header da imagem
+        //         BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+        //         BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
 
-            break;
-        }
+        //         // leitura do K
+        //         fread(&k, sizeof(double), 1, input_file);
+
+                
+
+        //     fclose(input_file);
+
+        //     if(k != 0)
+        //     {
+                
+        //     }
+
+        //     RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+
+        //     YCbCr_to_RGB(YCbCr_up,  rgb_final);
+
+        //     exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
+        //     printf("Imagem salva como imagem_saida.bmp\n");
+
+        //     break;
+        // }
 
 
         case 0: // sair do programa
