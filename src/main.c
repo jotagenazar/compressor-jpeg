@@ -23,6 +23,12 @@ void TESTE();
 
 int main() 
 {   
+    // execução do teste indo ate o fim da quantização e voltando, sem codificação por diferença + RLE + Huffman + escrita e abertura
+    // funcionando totalmente
+    // void TESTE_FUNCIONAL();
+    // return 0;
+
+    // execução do teste completo escrevendo no arquivo, trecho sera apagado na versão final
     TESTE();
     return 0;
 
@@ -47,6 +53,7 @@ int main()
     int input_size;
     int output_size;
     double k;
+
 
     // execução das operações
     switch(op_id)
@@ -77,6 +84,7 @@ int main()
 
             fclose(input_file);
 
+
             // Criação matriz YCbCr e conversão da matriz RGB lida para ela
             YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
             RGB_to_YCbCr(rgb_img, YCbCr_img);
@@ -85,12 +93,14 @@ int main()
             // não houve compressão, o fator k da quantização usado foi 0
             k = 0;
 
+
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
             FILE *output_file = abrir_arquivo(output_filename, "wb");
 
                 // escreve os headers bmp da imagem original
                 escrever_headers_bmp(output_file, bmp_file_header, bmp_info_header);
 
+                // escreve o k como 0 indicando que nao houve compressao jpeg
                 fwrite(&k, sizeof(double), 1, output_file);
 
                 executar_codificacao_entropica(YCbCr_img, output_file, k);
@@ -100,15 +110,18 @@ int main()
 
             fclose(output_file);
 
+
             printf("\nImagem comprimida e salva em %s\n", output_filename);
 
             double taxa_compressao = (double) input_size / output_size;
             printf("Taxa de Compressão: %.2lf", taxa_compressao);
 
+
             liberar_YCbCr(YCbCr_img);
 
             break;
         }
+
 
         case 2: //comprimir imagem lossy
         {
@@ -158,9 +171,11 @@ int main()
             YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, k);
             liberar_YCbCr_downsampled(YCbCr_freq);
 
-            // atualiza os valores do cabeçalho bmp caso a imagem tenha recebido padding
+
+            // atualiza os valores do cabeçalho bmp para o caso de a imagem tenha recebido padding
             bmp_info_header.biWidth  = YCbCr_quantizado.width;
             bmp_info_header.biHeight = YCbCr_quantizado.height;
+
 
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
             FILE *output_file = abrir_arquivo(output_filename, "wb");
@@ -184,6 +199,7 @@ int main()
             double taxa_compressao = (double) input_size / output_size;
             printf("Taxa de Compressão: %.2lf", taxa_compressao);
 
+
             liberar_YCbCr_downsampled(YCbCr_quantizado);
 
             break;
@@ -192,39 +208,57 @@ int main()
 
         case 3: // descomprimir imagem
         {
-            // printf("Caminho da imagem comprimida a ser descomprimida: ");
-            // scanf(" %s", input_filename);
+            printf("Caminho da imagem comprimida a ser descomprimida: ");
+            scanf(" %s", input_filename);
 
-            // printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
-            // scanf(" %s", output_filename);
+            printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
+            scanf(" %s", output_filename);
 
-            // // Leitura do arquivo e headers bmp
-            // FILE *input_file = abrir_arquivo(input_filename, "rb");
 
-            //     // leitura e importação do header do arquivo e do header da imagem
-            //     BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
-            //     BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
+            // Leitura do arquivo e headers bmp
+            FILE *input_file = abrir_arquivo(input_filename, "rb");
 
-            //     // leitura do K
-            //     fread(&k, sizeof(double), 1, input_file);
+                // leitura e importação do header do arquivo e do header da imagem
+                BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+                BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
 
-                
+                // leitura do K
+                fread(&k, sizeof(double), 1, input_file);
 
-            // fclose(input_file);
+                YCbCrImg img;
+                if(k == 0) img = alocar_YCbCr(bmp_info_header.biWidth, bmp_info_header.biHeight);
+                else img = alocar_YCbCr_downsampled(bmp_info_header.biWidth, bmp_info_header.biHeight);
 
-            // if(k != 0)
-            // {
-                
-            // }
+                executar_decodificacao_entropica(img, input_file, k);
 
-            // RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+            fclose(input_file);
 
-            // YCbCr_to_RGB(YCbCr_up,  rgb_final);
+            if(k != 0)
+            {
+                YCbCrImg YCbCr_desquantizado = desquantizar_imagem(img, k);
+                liberar_YCbCr_downsampled(img);
 
-            // exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
-            // printf("Imagem salva como imagem_saida.bmp\n");
+                YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
+                liberar_YCbCr_downsampled(YCbCr_desquantizado);
 
-            // break;
+                YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
+                liberar_YCbCr_downsampled(YCbCr_IDCT);
+
+                img = YCbCr_up;
+            }
+
+            RGBImg rgb_final = alocar_RGB(img.width, img.height);
+
+            YCbCr_to_RGB(img,  rgb_final);
+
+
+            exportar_bmp(output_filename, bmp_file_header, bmp_info_header, rgb_final);
+            printf("Imagem salva como imagem_saida.bmp\n");
+
+
+            liberar_YCbCr(img);
+
+            break;
         }
 
 
@@ -245,7 +279,66 @@ int main()
     return 0;
 }
 
+void TESTE_FUNCIONAL()
+{   
+    char input_filename[100];
+    printf("Caminho da imagem *.bmp a ser comprimida: ");
+    scanf(" %s", input_filename);
 
+    // Leitura do arquivo bmp para as structs de header e matriz RGB
+    FILE *input_file = abrir_arquivo(input_filename, "rb");
+
+        // leitura e importação do header do arquivo e do header da imagem
+        BmpFileHeader bmp_file_header = ler_bmp_file_header(input_file);
+        BmpInfoHeader bmp_info_header = ler_bmp_info_header(input_file);
+
+        printf("file header sizer = %d \n", bmp_file_header.bfSize);
+        printf("bmp info header size = %d \n", bmp_info_header.biSize);
+
+        RGBImg rgb_img = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
+
+        fseek(input_file, bmp_file_header.bfOffBits, SEEK_SET); // Posiciona o ponteiro para o início dos dados da imagem
+        ler_bmp_rgb(input_file, rgb_img);
+
+    fclose(input_file);
+
+    // Criação matriz YCbCr e conversão da matriz RGB lida para ela
+    YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
+    RGB_to_YCbCr(rgb_img, YCbCr_img);
+    liberar_RGB(rgb_img);
+
+    // Criação YCbCr downsampled
+    YCbCrImg YCbCr_img_downsampled = downsample_YCbCr(YCbCr_img);
+    liberar_YCbCr(YCbCr_img);
+
+    // Aplicação transformação DCT na YCbCr
+    YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img_downsampled);
+    liberar_YCbCr_downsampled(YCbCr_img_downsampled);
+
+    // Quantização da imagem YCbCr no domínio das frequencias
+    YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 5.0);
+    liberar_YCbCr_downsampled(YCbCr_freq);
+
+
+    YCbCrImg YCbCr_desquantizado = desquantizar_imagem(YCbCr_quantizado, 5.0);
+    liberar_YCbCr_downsampled(YCbCr_quantizado);
+
+    YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(YCbCr_desquantizado);
+    liberar_YCbCr_downsampled(YCbCr_desquantizado);
+
+    YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
+    liberar_YCbCr_downsampled(YCbCr_IDCT);
+
+    RGBImg rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+
+    YCbCr_to_RGB(YCbCr_up,  rgb_final);
+
+    exportar_bmp("imagem_saida.bmp", bmp_file_header, bmp_info_header, rgb_final);
+    printf("Imagem salva como imagem_saida.bmp\n");
+
+    liberar_RGB(rgb_final);
+    liberar_YCbCr(YCbCr_up);
+}
 
 void TESTE()
 {   
@@ -284,10 +377,10 @@ void TESTE()
     liberar_YCbCr_downsampled(YCbCr_img_downsampled);
 
     // Quantização da imagem YCbCr no domínio das frequencias
-    YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 1.0);
+    YCbCrImg YCbCr_quantizado = quantizar_imagem(YCbCr_freq, 5.0);
     liberar_YCbCr_downsampled(YCbCr_freq);
 
-    double k = 1.0;
+    double k = 5.0;
     // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
     FILE *output_file = abrir_arquivo("output_file", "wb");
 

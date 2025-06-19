@@ -60,6 +60,7 @@ const char* huffman_dc_lum_codes[12] = {
     "111110",   // Categoria 8
     "1111110",  // Categoria 9
     "11111110", // Categoria A (10)
+    "111111110" // Categoria B (11)
 };
 
 // Tabela 4 - Prefixos para o Coeficiente AC
@@ -324,12 +325,11 @@ int _get_category(int coeficiente)
     if (abs_val <= 255) return 8; // Faixa de valores: -255, ..., -128, 128, ..., 255
     if (abs_val <= 511) return 9; // Faixa de valores: -511, ..., -256, 256, ..., 511
     if (abs_val <= 1023) return 10; // Categoria 'A' -> Faixa de valores: -1023, ..., -512, 512, ..., 1023
-    
-    // Linha criada baseada na Tabela 2, removida pois a tabela 3 nao apresenta categoria B
-    //if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
+    if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
 
-    // Assumindo que a categoria máxima é 10 (A), conforme Tabela 3, ignorando a inconsistência
-    if (abs_val > 1023 && abs_val < 2048) return 10;
+    // Problema que enfrentamos:
+    // Tabela 2 apresenta categoria B para DC, tabela 3 não possui. Criamos categoria B na tabela DC
+    // seguindo o padrão estabelecido e contornamos a inconsistência
 
     // Se o número for maior que o suportado, retorna um erro ou um valor inválido.
     // Para este trabalho, os valores não devem exceder 2047.
@@ -609,6 +609,13 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
 
             // A. Codifica o coeficiente DC
             int dc_cat = _get_category(bloco_codificado.DC_dif);
+
+            printf("DC_dif: %d -> dc_cat: %d\n", bloco_codificado.DC_dif, dc_cat);
+            if (dc_cat < 0 || dc_cat > 11) {
+                printf("ERRO: Categoria DC inválida!\n");
+                exit(1); // Força a saída para vermos o erro
+            }
+
             const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
             _write_bits(&writer, dc_prefixo);
@@ -628,6 +635,17 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
                 } 
                 else { // Par RLE normal
                     int ac_cat = _get_category(par.coeficiente);
+
+                    printf("  AC Coef: %d, Zeros: %d -> ac_cat: %d\n", par.coeficiente, par.zeros, ac_cat);
+                    if (ac_cat < 0 || ac_cat > 10) {
+                         printf("ERRO: Categoria AC inválida!\n");
+                         exit(1);
+                    }
+                    if (par.zeros < 0 || par.zeros > 15) {
+                        printf("ERRO: Quantidade de zeros AC inválida!\n");
+                        exit(1);
+                    }
+                    
                     const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
                     _write_bits(&writer, ac_prefixo);
