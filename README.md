@@ -13,7 +13,7 @@ João Pedro Mori Machado (...)
 O programa não está funcionando corretamente. A função TESTE_funcional implementa a compressão até a quantização e faz a descompressão a partir dela de maneira bem sucedida. A escrita codificada em um binário pela codificação entrópica não foi bem sucedida no trabalho, apesar da implementação parcial estar estruturada e presente mas conter alguma falha que não pudemos identificar em tempo hábil
 
 Atualização nessa v2:
-Encontramos o problema, que estava relacionado com as Tabelas 2 e 3 da especificação. Implementamos errado a tabela 4,  a tabela 3 não apresentava a classificação B para os valores até 2047 em DC que a a tabela 2 descrevia. Enfrentadas essas situações, e devendo algumas correções de leaks de memória, a compressão e descompressão com perdas está funcional no trabalho. Ainda existem correções necessárias para a compressão sem perdas, que não está funcionando corretamente
+Encontramos o problema, que estava relacionado com as Tabelas 2 e 3 da especificação. Implementamos errado a tabela 4, e nas especificações do trabalho a tabela 3 não apresentava a classificação B para os valores até 2047 em DC que a a tabela 2 descrevia. Enfrentadas essas situações, e ainda devendo algumas correções de leaks de memória, agora a compressão e descompressão com perdas está funcional no trabalho. Ainda existem correções necessárias para a compressão sem perdas, que não está funcionando corretamente
 
 ## Modo de Uso
 
