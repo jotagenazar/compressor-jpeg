@@ -421,12 +421,6 @@ YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
  */
 void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida) 
 {
-    
-    FILE* arquivo = fopen(nome_arquivo_saida, "wb");
-    if (!arquivo) {
-        printf("Erro critico: Nao foi possivel criar o arquivo de saida '%s'.\n", nome_arquivo_saida);
-        return;
-    }
 
     // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
@@ -438,6 +432,9 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
 
     double bloco_atual[8][8];
     char mantissa_buffer[17]; // Buffer para a string da mantissa (max 16 bits + \0)
+
+    int divisor = DOWNSAMPLE_DIVISOR; // variavel que indica o divisor das matrizes Cb e Cr caso tenha ocorrido compressao jpeg e consequente downsampling
+    if(k == 0) divisor = 1;
 
     // ======================================================================
     // === PASSO 1: Processa o Canal de Luminância (Y)
@@ -488,8 +485,8 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
     // ======================================================================
     // === PASSO 2: Processa o Canal de Crominância (Cb)
     // ======================================================================
-    int altura_chroma = img_quantizada.height / 2;
-    int largura_chroma = img_quantizada.width / 2;
+    int altura_chroma = img_quantizada.height / divisor;
+    int largura_chroma = img_quantizada.width / divisor;
 
     for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
@@ -553,9 +550,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_ar
     }
 
     // 2. Finaliza a escrita, descarregando quaisquer bits restantes no buffer
-    _flush_bits(&writer);
+    flush_bits(&writer);
 
-    fclose(arquivo);
-    printf("Imagem comprimida e salva com sucesso em '%s'\n", nome_arquivo_saida);
 }
 

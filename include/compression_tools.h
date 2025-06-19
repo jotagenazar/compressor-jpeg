@@ -76,7 +76,6 @@ YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k);
 // Função que aplica a inversa da quantizacao na imagem passada como parâmetro e retornando uma imagem YCbCr com os blocos recuperados.
 YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 
-
 // Funcao que aplica a codificao entropica na imagem passado como parametro, e escreve em um arquivo de saída  
 void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida);
 

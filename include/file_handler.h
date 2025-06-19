@@ -76,6 +76,8 @@ BmpInfoHeader ler_bmp_info_header(FILE *bmp_file);
 // Supõe que o ponteiro já aponta a localização do file_header no arquivo (SEEK_SET + BmpFileHeader.btOffBits)
 void ler_bmp_rgb(FILE *bmp_file, RGBImg rgb_img);
 
+// Função que escreve os headers bmp no arquivo aberto passado como parâmetro
+void escrever_headers_bmp(FILE *output_file, BmpFileHeader header, BmpInfoHeader info);
 
 // Função que exporta a matriz de cores e as informações da imagem em um arquivo bmp
 void exportar_bmp(  char *nome_arquivo, BmpFileHeader header, BmpInfoHeader info, 
