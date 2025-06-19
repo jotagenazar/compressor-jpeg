@@ -11,7 +11,8 @@
 * EXTERN VARIABLES
 ************************************/
 
-const int Q_Y[8][8] = { // Matriz para fazer a Quantizacao de Y
+// Matriz para fazer a Quantizacao da matriz Y
+const int Q_Y[8][8] = { 
     {16,11,10,16,24,40,51,61},
     {12,12,14,19,26,58,60,55},
     {14,13,16,24,40,57,69,56},
@@ -22,7 +23,8 @@ const int Q_Y[8][8] = { // Matriz para fazer a Quantizacao de Y
     {72,92,95,98,112,100,103,99}
 };
 
-const int Q_C[8][8] = { // Matriz para fazer a quantizacao de Cb e Cr
+// Matriz para fazer a quantizacao das matrizes Cb e Cr
+const int Q_C[8][8] = { 
     {17,18,24,47,99,99,99,99},
     {18,21,26,66,99,99,99,99},
     {24,26,56,99,99,99,99,99},
@@ -33,7 +35,8 @@ const int Q_C[8][8] = { // Matriz para fazer a quantizacao de Cb e Cr
     {99,99,99,99,99,99,99,99}
 };
 
-const int zigzag[64][2] = { // Matriz para acelerar o preenchimento do vetor na sequencia zigzag
+// Matriz para acelerar o preenchimento do vetor na sequencia zigzag
+const int zigzag[64][2] = { 
     {0,0}, {0,1}, {1,0}, {2,0}, {1,1}, {0,2}, {0,3}, {1,2},
     {2,1}, {3,0}, {4,0}, {3,1}, {2,2}, {1,3}, {0,4}, {0,5},
     {1,4}, {2,3}, {3,2}, {4,1}, {5,0}, {6,0}, {5,1}, {4,2},
@@ -44,9 +47,7 @@ const int zigzag[64][2] = { // Matriz para acelerar o preenchimento do vetor na 
     {6,5}, {7,4}, {7,5}, {6,6}, {5,7}, {6,7}, {7,6}, {7,7}
 };
 
-// * essa é a tabela 3. 
-// TODO: VOLTAR AQUI E PENSAR SE VAMOS USAR ELA ASSIM
-// Códigos de prefixo Huffman para as categorias dos coeficientes DC (Luminância)
+// Tabela 3 - Prefixos para Coeficientes DC 
 const char* huffman_dc_lum_codes[12] = {
     "010",      // Categoria 0
     "011",      // Categoria 1
@@ -59,65 +60,89 @@ const char* huffman_dc_lum_codes[12] = {
     "111110",   // Categoria 8
     "1111110",  // Categoria 9
     "11111110", // Categoria A (10)
-    "111111110" // Categoria B (11) - Não está na sua tabela, mas completando o padrão
 };
 
-// TODO: Revisar se a tabela está correta. Me parece que não
-// Códigos de prefixo Huffman para os coeficientes AC (Luminância)
-// Formato: huffman_ac_lum_codes[qtde_zeros][categoria]
-// Categoria 0 é o EOB (End of Block)
-// Categoria > 10 são mais raros e podem ser omitidos inicialmente
+// Tabela 4 - Prefixos para o Coeficiente AC
+/**
+ * Tabela de códigos Huffman para os coeficientes AC de Luminância.
+ * Transcrita da Tabela 4 do "Guia JPEG.pdf".
+ *
+ * Acesso: huffman_ac_lum_codes[run][size]
+ * - run: Número de zeros precedentes (0-15)
+ * - size: Categoria do coeficiente (0-10)
+ *
+ * Códigos especiais:
+ * - EOB (End of Block) {0,0}: huffman_ac_lum_codes[0][0] -> "1010"
+ * - ZRL (16 zeros)   {15,0}: huffman_ac_lum_codes[15][0] -> "11111111001"
+ */
 const char* huffman_ac_lum_codes[16][11] = {
-    // size (categoria)
-    // 0(ESP)    1        2         3          4           5            6             7              8               9                  10
-    {"1010",   "00",    "01",     "100",     "1011",    "11010",     "111000",     "1111000",     "111110110",   "11111110110",   "1111111110000011"}, // 0 zeros
-    {NULL,     "1100",  "11011",  "1111001", "11111000", "1111110011", "111111110101", "1111111110000100", "1111111110000101", "1111111110000110", NULL},                // 1 zero
-    {NULL,     "111010", "11111010", "1111110111", "111111110110", "1111111110000111", "1111111110001000", "1111111110001001", NULL,               NULL,                NULL},                // 2 zeros
-    {NULL,     "111011", "11111011", "11111111000", "1111111110001010", "1111111110001011", "1111111110001100", NULL,               NULL,               NULL,                NULL},                // 3 zeros
-    {NULL,     "1111010", "111111010", "111111110111", "1111111110001101", "1111111110001110", NULL,               NULL,               NULL,               NULL,                NULL},                // 4 zeros
-    {NULL,     "1111011", "1111111010", "1111111110010000", "1111111110010001", NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 5 zeros
-    {NULL,     "11111001", "1111111011", "1111111110010010", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 6 zeros
-    {NULL,     "11111011", "111111110100", "1111111110010011", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 7 zeros
-    {NULL,     "111111000", "1111111110010100", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 8 zeros
-    {NULL,     "1111110010", "1111111110010101", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 9 zeros
-    {NULL,     "1111110100", "1111111110010110", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 10 zeros
-    {NULL,     "1111110101", "1111111110010111", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 11 zeros
-    {NULL,     "1111110110", "1111111110011000", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 12 zeros
-    {NULL,     "1111111000", "1111111110011001", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 13 zeros
-    {NULL,     "1111111001", "1111111110011010", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL},                // 14 zeros
-    {"11111111001", NULL,     NULL,      NULL,      NULL,        NULL,         NULL,          NULL,          NULL,            NULL,                NULL}                 // 15 zeros (ZRL)
+    // Categoria (size) ->
+    // 0(ESP)         1           2           3            4             5              6               7                8                 9                  10
+    { "1010",       "00",       "01",       "100",       "1011",      "11010",       "111000",       "1111000",     "111110110",     "11111110110",   "1111111110000011" }, // 0 zeros
+    { NULL,         "1100",     "11011",    "1111001",   "11111000",  "1111110011",  "111111110101", "1111111110000100", "1111111110000101", "1111111110000110", NULL               }, // 1 zero
+    { NULL,         "111010",   "11111010", "1111110111", "111111110110", "1111111110000111", "1111111110001000", "1111111110001001", NULL,               NULL,                NULL               }, // 2 zeros
+    { NULL,         "111011",   "11111011", "11111111000", "1111111110001010", "1111111110001011", "1111111110001100", NULL,               NULL,               NULL,                NULL               }, // 3 zeros
+    { NULL,         "1111010",  "111111010", "111111110111", "1111111110001101", "1111111110001110", NULL,               NULL,               NULL,               NULL,                NULL               }, // 4 zeros
+    { NULL,         "1111011",  "1111111010", "1111111110010000", "1111111110010001", NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 5 zeros
+    { NULL,         "11111001", "1111111011", "1111111110010010", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 6 zeros
+    { NULL,         "11111011", "111111110100", "1111111110010011", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 7 zeros
+    { NULL,         "111111000", "1111111110010100", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 8 zeros
+    { NULL,         "1111110010", "1111111110010101", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 9 zeros
+    { NULL,         "1111110100", "1111111110010110", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 10 zeros
+    { NULL,         "1111110101", "1111111110010111", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 11 zeros
+    { NULL,         "1111110110", "1111111110011000", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 12 zeros
+    { NULL,         "1111111000", "1111111110011001", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 13 zeros
+    { NULL,         "1111111001", "1111111110011010", NULL,               NULL,               NULL,               NULL,               NULL,               NULL,               NULL,                NULL               }, // 14 zeros
+    { "11111111001",  NULL,       NULL,        NULL,        NULL,          NULL,          NULL,            NULL,            NULL,              NULL,                NULL               }  // 15 zeros (ZRL)
 };
 
-
-/************************************
-* PRIVATE MACROS AND DEFINES
-************************************/
-
-/************************************
-* PRIVATE TYPEDEFS
-************************************/
-
-/************************************
-* STATIC VARIABLES
-************************************/
-
-/************************************
-* GLOBAL VARIABLES
-************************************/
 
 /************************************
 * STATIC FUNCTION PROTOTYPES
 ************************************/
 
+// Função que aplica a função de quantização de um bloco B usando a matriz Q fornecida e o parametro k
+void _quantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
+
+// Função que aplica a inversa da quantizacao
+void _desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k);
+
+// Função que aplica a quantizacao em todos os blocos da matriz passada como parâmetro e retorna a nova matriz alocada com os
+// coeficientes calculados em cada bloco
+double** _quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
+
+// Função que aplica a inversa da quantizacao em todos os coeficientes nos blocos da matriz passada como parâmetro e retorna 
+// a nova matriz alocada com os blocos originais em cada posição
+double** _desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k);
+
+// Percorre um bloco fazendo um zigzag e retorna um vetor com os valores do bloco seguindo a ordem percorrida 
+int* _aplicar_zigzag(double bloco[8][8]);
+
+// Recebe um vetor de inteiros e forma os pares RLE e retorna a quantidade de pares formados
+int _codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida);
+
+// Recebe um bloco e calcula a diferenca entre o DC do bloco atual e anterior e calcula os pares RLE para os 63 valores AC
+BLOCO_CODIFICADO _codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_anterior);
+
+// Implementacao da tabela 2 em codigo
+// Recebe o coeficiente DC ou AC e retorna a categoria a qual pertence
+int _get_category(int coeficiente);
+
+// Função para escrever o meu numero. Le o coeficiente que é o numero, verifica a categoria que ele pertence e salva no mantissa_str
+// Função para gerar a string da mantissa
+void _get_mantissa(int coeficiente, int categoria, char* mantissa_str); 
+
+// Funcao que escreve um byte no arquivo quando temos 8 bits
+void _write_bits(BitWriter* writer, const char* bit_string); 
+
+// Função para escrever os bits restantes no final do processo
+void _flush_bits(BitWriter* writer); 
+
 /************************************
 * STATIC FUNCTIONS
 ************************************/
 
-/************************************
-* GLOBAL FUNCTIONS
-************************************/
-
-void quantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
+void _quantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
 {
     for (int i = 0; i < 8; i++) {
         for (int j = 0; j < 8; j++) {
@@ -126,8 +151,16 @@ void quantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
     }
 }
 
+void _desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
+{
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            bloco[i][j] = bloco[i][j] * Q[i][j] * k;
+        }
+    }
+}
 
-double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
+double** _quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
 {
     double** saida = malloc(altura * sizeof(double*));
     for (int i = 0; i < altura; i++) {
@@ -147,7 +180,7 @@ double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[
             }
 
             // Aplica quantização
-            quantizar_bloco(bloco, Q, k);
+            _quantizar_bloco(bloco, Q, k);
 
             // Copia de volta
             for (int i = 0; i < 8; i++) {
@@ -161,36 +194,7 @@ double** quantizar_matriz(double** matriz, int altura, int largura, const int Q[
     return saida;
 }
 
-
-YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
-{
-    YCbCrImg quantizado;
-
-    quantizado.height = img_dct.height;
-    quantizado.width = img_dct.width;
-
-    // Canal Y usa matriz Q_Y
-    quantizado.Y = quantizar_matriz(img_dct.Y, img_dct.height, img_dct.width, Q_Y, k);
-
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
-    quantizado.Cb = quantizar_matriz(img_dct.Cb, img_dct.height / 2, img_dct.width / 2, Q_C, k);
-    quantizado.Cr = quantizar_matriz(img_dct.Cr, img_dct.height / 2, img_dct.width / 2, Q_C, k);
-
-    return quantizado;
-}
-
-
-void desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
-{
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            bloco[i][j] = bloco[i][j] * Q[i][j] * k;
-        }
-    }
-}
-
-
-double** desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
+double** _desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
 {
     double** saida = malloc(altura * sizeof(double*));
     for (int i = 0; i < altura; i++) {
@@ -210,7 +214,7 @@ double** desquantizar_matriz(double** matriz, int altura, int largura, const int
             }
 
             // Aplica desquantização
-            desquantizar_bloco(bloco, Q, k);
+            _desquantizar_bloco(bloco, Q, k);
 
             // Copia de volta
             for (int i = 0; i < 8; i++) {
@@ -224,26 +228,7 @@ double** desquantizar_matriz(double** matriz, int altura, int largura, const int
     return saida;
 }
 
-
-YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
-{
-    YCbCrImg desquantizado;
-
-    desquantizado.height = quantizado.height;
-    desquantizado.width = quantizado.width;
-
-    // Canal Y usa matriz Q_Y
-    desquantizado.Y = desquantizar_matriz(quantizado.Y, quantizado.height, quantizado.width, Q_Y, k);
-
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
-    desquantizado.Cb = desquantizar_matriz(quantizado.Cb, quantizado.height / 2, quantizado.width / 2, Q_C, k);
-    desquantizado.Cr = desquantizar_matriz(quantizado.Cr, quantizado.height / 2, quantizado.width / 2, Q_C, k);
-
-    return desquantizado;
-}
-
-
-int* aplicar_zigzag(double bloco[8][8])
+int* _aplicar_zigzag(double bloco[8][8])
 {
     int* vetor = malloc(64 * sizeof(int));
 
@@ -256,10 +241,9 @@ int* aplicar_zigzag(double bloco[8][8])
     return vetor;
 }
 
-// ! até aqui tudo certo. Novas funçoes a abaixo
 
-// Pega os 63 valores do vetor pós zigzag e forma os pares RLE
-int codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida) {
+int _codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida) 
+{
     int qtd_pares = 0;
     int zero_count = 0;
 
@@ -289,11 +273,12 @@ int codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida) {
     return qtd_pares;
 }
 
-BLOCO_CODIFICADO codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_anterior) {
+BLOCO_CODIFICADO _codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_anterior)
+{
     BLOCO_CODIFICADO resultado; // Cria a struct que será retornada
 
     // 1. Aplica o Zig-Zag
-    int* zig_zag_vetor = aplicar_zigzag(bloco_quantizado);
+    int* zig_zag_vetor = _aplicar_zigzag(bloco_quantizado);
 
     // 2. Calcula a diferença do DC
     int dc_atual = zig_zag_vetor[0];
@@ -301,7 +286,7 @@ BLOCO_CODIFICADO codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_
 
     // 3. Chama a nova função de RLE para preencher o vetor de pares AC
     // A função retorna a quantidade de pares, que armazenamos em 'qtd_pares'
-    resultado.qtd_pares = codificar_ac_rle(zig_zag_vetor, resultado.vetor_par_rle);
+    resultado.qtd_pares = _codificar_ac_rle(zig_zag_vetor, resultado.vetor_par_rle);
     
     // 4. Libera a memória
     free(zig_zag_vetor);
@@ -310,8 +295,7 @@ BLOCO_CODIFICADO codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_
     return resultado;
 }
 
-// Implementacao da tabela 2 em codigo
-int get_category(int coeficiente) 
+int _get_category(int coeficiente) 
 {
     // A categoria depende do valor absoluto do coeficiente
     int abs_val = abs(coeficiente);
@@ -334,9 +318,8 @@ int get_category(int coeficiente)
     return -1; // Valor de erro
 }
 
-// Função para escrever o meu numero. Le o coeficiente que é o numero, verifica a categoria que ele pertence e salva no mantissa_str
-// Função para gerar a string da mantissa
-void get_mantissa(int coeficiente, int categoria, char* mantissa_str) 
+
+void _get_mantissa(int coeficiente, int categoria, char* mantissa_str) 
 {
     if (categoria == 0) {
         mantissa_str[0] = '\0'; // Mantissa de 0 bits
@@ -360,7 +343,8 @@ void get_mantissa(int coeficiente, int categoria, char* mantissa_str)
     }
 }
 
-void write_bits(BitWriter* writer, const char* bit_string) {
+void _write_bits(BitWriter* writer, const char* bit_string) 
+{
     for (int i = 0; i < strlen(bit_string); i++) {
         // Desloca o buffer para a esquerda para abrir espaço
         writer->byte_buffer <<= 1;
@@ -379,8 +363,8 @@ void write_bits(BitWriter* writer, const char* bit_string) {
     }
 }
 
-// Função para escrever os bits restantes no final do processo
-void flush_bits(BitWriter* writer) {
+void _flush_bits(BitWriter* writer) 
+{
     if (writer->bit_count > 0) {
         // Preenche os bits restantes com 1's (padrão JPEG)
         writer->byte_buffer <<= (8 - writer->bit_count);
@@ -390,13 +374,53 @@ void flush_bits(BitWriter* writer) {
     }
 }
 
+/************************************
+* GLOBAL FUNCTIONS
+************************************/
+
+YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
+{
+    YCbCrImg quantizado;
+
+    quantizado.height = img_dct.height;
+    quantizado.width = img_dct.width;
+
+    // Canal Y usa matriz Q_Y
+    quantizado.Y = _quantizar_matriz(img_dct.Y, img_dct.height, img_dct.width, Q_Y, k);
+
+    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
+    quantizado.Cb = _quantizar_matriz(img_dct.Cb, img_dct.height / 2, img_dct.width / 2, Q_C, k);
+    quantizado.Cr = _quantizar_matriz(img_dct.Cr, img_dct.height / 2, img_dct.width / 2, Q_C, k);
+
+    return quantizado;
+}
+
+
+YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
+{
+    YCbCrImg desquantizado;
+
+    desquantizado.height = quantizado.height;
+    desquantizado.width = quantizado.width;
+
+    // Canal Y usa matriz Q_Y
+    desquantizado.Y = _desquantizar_matriz(quantizado.Y, quantizado.height, quantizado.width, Q_Y, k);
+
+    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
+    desquantizado.Cb = _desquantizar_matriz(quantizado.Cb, quantizado.height / 2, quantizado.width / 2, Q_C, k);
+    desquantizado.Cr = _desquantizar_matriz(quantizado.Cr, quantizado.height / 2, quantizado.width / 2, Q_C, k);
+
+    return desquantizado;
+}
+
 /**
  * @brief Executa todo o processo de codificação entrópica para uma imagem e escreve o bitstream final.
  * Processa os componentes Y, Cb e Cr, gerando o arquivo binário comprimido.
  * @param img_quantizada A estrutura YCbCrImg com os dados após a quantização.
  * @param nome_arquivo_saida O nome do arquivo a ser criado (ex: "imagem.minhajpeg").
  */
-void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, double k) {
+void executar_codificacao_entropica(YCbCrImg img_quantizada, const char* nome_arquivo_saida) 
+{
 
     // 1. Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
@@ -423,17 +447,17 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
                 bloco_atual[i][j] = img_quantizada.Y[i_bloco + i][j_bloco + j];
 
             // Codifica o bloco para obter DC_dif e os pares RLE para os ACs
-            BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Y);
+            BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Y);
             dc_anterior_Y += bloco_codificado.DC_dif; // ATENÇÃO: Atualiza o DC anterior para a PRÓXIMA iteração
 
             // --- Escreve os bits do bloco no arquivo ---
 
             // A. Codifica o coeficiente DC
-            int dc_cat = get_category(bloco_codificado.DC_dif);
+            int dc_cat = _get_category(bloco_codificado.DC_dif);
             const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
-            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            write_bits(&writer, dc_prefixo);
-            write_bits(&writer, mantissa_buffer);
+            _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
+            _write_bits(&writer, dc_prefixo);
+            _write_bits(&writer, mantissa_buffer);
             
             // B. Codifica os coeficientes AC
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) { // Renomeei 'qtd_trinca' para 'qtd_pares' para consistência
@@ -441,18 +465,18 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
 
                 // --- Lógica para tratar os símbolos especiais ---
                 if (par.zeros == 0 && par.coeficiente == 0) { // Símbolo EOB
-                    write_bits(&writer, huffman_ac_lum_codes[0][0]);
+                    _write_bits(&writer, huffman_ac_lum_codes[0][0]);
                     break; 
                 } 
                 else if (par.zeros == 15 && par.coeficiente == 0) { // Símbolo ZRL
-                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } 
                 else { // Par RLE normal
-                    int ac_cat = get_category(par.coeficiente);
+                    int ac_cat = _get_category(par.coeficiente);
                     const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
-                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    write_bits(&writer, ac_prefixo);
-                    write_bits(&writer, mantissa_buffer);
+                    _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    _write_bits(&writer, ac_prefixo);
+                    _write_bits(&writer, mantissa_buffer);
                 }
             }
         }
@@ -469,25 +493,25 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
                 bloco_atual[i][j] = img_quantizada.Cb[i_bloco + i][j_bloco + j];
             
-            BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Cb);
+            BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Cb);
             dc_anterior_Cb += bloco_codificado.DC_dif;
 
-            int dc_cat = get_category(bloco_codificado.DC_dif);
-            write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
-            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            write_bits(&writer, mantissa_buffer);
+            int dc_cat = _get_category(bloco_codificado.DC_dif);
+            _write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
+            _write_bits(&writer, mantissa_buffer);
 
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
                 if (par.zeros == 0 && par.coeficiente == 0) {
-                    write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                    _write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
                 } else if (par.zeros == 15 && par.coeficiente == 0) {
-                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
-                    int ac_cat = get_category(par.coeficiente);
-                    write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
-                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    write_bits(&writer, mantissa_buffer);
+                    int ac_cat = _get_category(par.coeficiente);
+                    _write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    _write_bits(&writer, mantissa_buffer);
                 }
             }
         }
@@ -501,25 +525,25 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
                 bloco_atual[i][j] = img_quantizada.Cr[i_bloco + i][j_bloco + j];
 
-            BLOCO_CODIFICADO bloco_codificado = codificar_bloco_entropia(bloco_atual, dc_anterior_Cr);
+            BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Cr);
             dc_anterior_Cr += bloco_codificado.DC_dif;
             
-            int dc_cat = get_category(bloco_codificado.DC_dif);
-            write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
-            get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            write_bits(&writer, mantissa_buffer);
+            int dc_cat = _get_category(bloco_codificado.DC_dif);
+            _write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
+            _write_bits(&writer, mantissa_buffer);
 
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
                 if (par.zeros == 0 && par.coeficiente == 0) {
-                    write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                    _write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
                 } else if (par.zeros == 15 && par.coeficiente == 0) {
-                    write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
-                    int ac_cat = get_category(par.coeficiente);
-                    write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
-                    get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    write_bits(&writer, mantissa_buffer);
+                    int ac_cat = _get_category(par.coeficiente);
+                    _write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
+                    _write_bits(&writer, mantissa_buffer);
                 }
             }
         }
@@ -527,7 +551,6 @@ void executar_compressao_entropica(YCbCrImg img_quantizada, FILE* arquivo, doubl
 
     // 2. Finaliza a escrita, descarregando quaisquer bits restantes no buffer
     flush_bits(&writer);
+
 }
 
-
-// ! -----------------------------------------
