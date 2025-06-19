@@ -64,18 +64,9 @@ const char* huffman_dc_lum_codes[12] = {
 };
 
 // Tabela 4 - Prefixos para o Coeficiente AC
-/**
- * Tabela de códigos Huffman para os coeficientes AC de Luminância.
- * Transcrita da Tabela 4 do "Guia JPEG.pdf".
- *
- * Acesso: huffman_ac_lum_codes[run][size]
- * - run: Número de zeros precedentes (0-15)
- * - size: Categoria do coeficiente (0-10)
- *
- * Códigos especiais:
- * - EOB (End of Block) {0,0}: huffman_ac_lum_codes[0][0] -> "1010"
- * - ZRL (16 zeros)   {15,0}: huffman_ac_lum_codes[15][0] -> "11111111001"
- */
+// Códigos especiais:
+// - EOB (End of Block) {0,0}: huffman_ac_lum_codes[0][0] -> "1010"
+// - ZRL (16 zeros)   {15,0}: huffman_ac_lum_codes[15][0] -> "11111111001"
 const char* huffman_ac_lum_codes[16][11] = {
     // Categoria (size) ->
     // 0(ESP)         1           2           3            4             5              6               7                8                 9                  10
@@ -127,14 +118,14 @@ BLOCO_CODIFICADO _codificar_bloco_entropia(double bloco_quantizado[8][8], int dc
 
 // Implementacao da tabela 2 em codigo
 // Recebe o coeficiente DC ou AC e retorna a categoria a qual pertence
-int _get_category(int coeficiente);
+int _get_categoria(int coeficiente);
 
 // Função para escrever o meu numero. Le o coeficiente que é o numero, verifica a categoria que ele pertence e salva no mantissa_str
 // Função para gerar a string da mantissa
 void _get_mantissa(int coeficiente, int categoria, char* mantissa_str); 
 
 // Funcao que escreve um byte no arquivo quando temos 8 bits
-void _write_bits(BitWriter* writer, const char* bit_string); 
+void _escreve_bits(BitWriter* writer, const char* bit_string); 
 
 // Função para escrever os bits restantes no final do processo
 void _flush_bits(BitWriter* writer); 
@@ -176,6 +167,7 @@ void _desquantizar_bloco(double bloco[8][8], const int Q[8][8], double k)
 
 double** _quantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
 {
+    // alocando espaco para a matriz de saida
     double** saida = malloc(altura * sizeof(double*));
     for (int i = 0; i < altura; i++) {
         saida[i] = malloc(largura * sizeof(double));
@@ -210,6 +202,7 @@ double** _quantizar_matriz(double** matriz, int altura, int largura, const int Q
 
 double** _desquantizar_matriz(double** matriz, int altura, int largura, const int Q[8][8], double k)
 {
+    // alocando espaco para a matriz saida
     double** saida = malloc(altura * sizeof(double*));
     for (int i = 0; i < altura; i++) {
         saida[i] = malloc(largura * sizeof(double));
@@ -244,12 +237,14 @@ double** _desquantizar_matriz(double** matriz, int altura, int largura, const in
 
 int* _aplicar_zigzag(double bloco[8][8])
 {
+    // aloca espaco para o vetor
     int* vetor = malloc(64 * sizeof(int));
 
+    // Preencher o vetor com auxilio da tabela zigzag para acelerar o processo
     for (int i = 0; i < 64; i++) {
         int x = zigzag[i][0];
         int y = zigzag[i][1];
-        vetor[i] = (int)round(bloco[x][y]);  // pós-quantização, valores já são inteiros
+        vetor[i] = (int)round(bloco[x][y]);  
     }
 
     return vetor;
@@ -261,17 +256,19 @@ int _codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida)
     int qtd_pares = 0;
     int zero_count = 0;
 
+    // Laço para percorrer todas as posicoes do vetor
     for (int i = 1; i < 64; i++) {
-        if (zero_count == 16) {
+
+        if (zero_count == 16) { //caso eu tenha 15 zeros seguidos 
             pares_saida[qtd_pares].zeros = 15;
             pares_saida[qtd_pares].coeficiente = 0; // ZRL
             qtd_pares++;
             zero_count = 0;
         }
 
-        if (zig_zag_vetor[i] == 0) {
+        if (zig_zag_vetor[i] == 0) { // caso eu encontre um zero
             zero_count++;
-        } else {
+        } else { // caso seja um numero diferente de zero
             pares_saida[qtd_pares].zeros = zero_count;
             pares_saida[qtd_pares].coeficiente = zig_zag_vetor[i];
             qtd_pares++;
@@ -289,29 +286,26 @@ int _codificar_ac_rle(int zig_zag_vetor[64], Par_RLE* pares_saida)
 
 BLOCO_CODIFICADO _codificar_bloco_entropia(double bloco_quantizado[8][8], int dc_anterior)
 {
-    BLOCO_CODIFICADO resultado; // Cria a struct que será retornada
+    // Cria a struct que será retornada
+    BLOCO_CODIFICADO resultado; 
 
-    // 1. Aplica o Zig-Zag
+    // Passa o bloco para o vetor zigzag
     int* zig_zag_vetor = _aplicar_zigzag(bloco_quantizado);
 
-    // 2. Calcula a diferença do DC
+    // Calcula a diferença do DC entre o bloco atual e o anterior
     int dc_atual = zig_zag_vetor[0];
     resultado.DC_dif = dc_atual - dc_anterior;
 
-    // 3. Chama a nova função de RLE para preencher o vetor de pares AC
-    // A função retorna a quantidade de pares, que armazenamos em 'qtd_pares'
+    // Criamos os pares RLE e armazenamos quantos pares foram criados
     resultado.qtd_pares = _codificar_ac_rle(zig_zag_vetor, resultado.vetor_par_rle);
     
-    // 4. Libera a memória
     free(zig_zag_vetor);
 
-    // Retorna a struct completamente preenchida
     return resultado;
 }
 
-int _get_category(int coeficiente) 
+int _get_categoria(int coeficiente) 
 {
-    // A categoria depende do valor absoluto do coeficiente
     int abs_val = abs(coeficiente);
 
     if (abs_val == 0) return 0; // Faixa de valores: 0
@@ -326,6 +320,7 @@ int _get_category(int coeficiente)
     if (abs_val <= 511) return 9; // Faixa de valores: -511, ..., -256, 256, ..., 511
     if (abs_val <= 1023) return 10; // Categoria 'A' -> Faixa de valores: -1023, ..., -512, 512, ..., 1023
     if (abs_val <= 2047) return 11; // Categoria 'B' -> Faixa de valores: -2047, ..., -1024, 1024, ..., 2047
+
 
     // Problema que enfrentamos:
     // Tabela 2 apresenta categoria B para DC, tabela 3 não possui. Criamos categoria B na tabela DC
@@ -361,7 +356,7 @@ void _get_mantissa(int coeficiente, int categoria, char* mantissa_str)
     }
 }
 
-void _write_bits(BitWriter* writer, const char* bit_string) 
+void _escreve_bits(BitWriter* writer, const char* bit_string) 
 {
     for (int i = 0; i < strlen(bit_string); i++) {
         // Desloca o buffer para a esquerda para abrir espaço
@@ -384,7 +379,7 @@ void _write_bits(BitWriter* writer, const char* bit_string)
 void _flush_bits(BitWriter* writer) 
 {
     if (writer->bit_count > 0) {
-        // Preenche os bits restantes com 1's (padrão JPEG)
+        // Preenche os bits restantes com 1's 
         writer->byte_buffer <<= (8 - writer->bit_count);
         writer->byte_buffer |= ((1 << (8 - writer->bit_count)) - 1);
         fwrite(&writer->byte_buffer, 1, 1, writer->output_file);
@@ -536,15 +531,16 @@ void _decodificar_bloco(BitReader *reader, int *dc_anterior, double bloco_saida[
 
 YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
 {
+    // Cria a struct que será retornada
     YCbCrImg quantizado;
 
     quantizado.height = img_dct.height;
     quantizado.width = img_dct.width;
 
-    // Canal Y usa matriz Q_Y
+    // Quantiza a matriz Y e usa a matriz Q_Y
     quantizado.Y = _quantizar_matriz(img_dct.Y, img_dct.height, img_dct.width, Q_Y, k);
 
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
+    // Quantiza as matrizes Cb e Cr (tamanhos reduzidos) e usa a matriz Q_C
     quantizado.Cb = _quantizar_matriz(img_dct.Cb, img_dct.height / 2, img_dct.width / 2, Q_C, k);
     quantizado.Cr = _quantizar_matriz(img_dct.Cr, img_dct.height / 2, img_dct.width / 2, Q_C, k);
 
@@ -554,27 +550,23 @@ YCbCrImg quantizar_imagem(YCbCrImg img_dct, double k)
 
 YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
 {
+    // Cria a struct que será retornada
     YCbCrImg desquantizado;
 
     desquantizado.height = quantizado.height;
     desquantizado.width = quantizado.width;
 
-    // Canal Y usa matriz Q_Y
+    // Desquantiza a matriz Y e usa a matriz Q_Y
     desquantizado.Y = _desquantizar_matriz(quantizado.Y, quantizado.height, quantizado.width, Q_Y, k);
 
-    // Cb e Cr usam matriz Q_C (tamanhos reduzidos)
+    // Desquantiza as matrizes Cb (tamanhos reduzidos) e usa a matriz Q_C
     desquantizado.Cb = _desquantizar_matriz(quantizado.Cb, quantizado.height / 2, quantizado.width / 2, Q_C, k);
     desquantizado.Cr = _desquantizar_matriz(quantizado.Cr, quantizado.height / 2, quantizado.width / 2, Q_C, k);
 
     return desquantizado;
 }
 
-/**
- * @brief Executa todo o processo de codificação entrópica para uma imagem e escreve o bitstream final.
- * Processa os componentes Y, Cb e Cr, gerando o arquivo binário comprimido.
- * @param img_quantizada A estrutura YCbCrImg com os dados após a quantização.
- * @param nome_arquivo_saida O nome do arquivo a ser criado (ex: "imagem.minhajpeg").
- */
+
 void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k) 
 {
     // 1. Inicializa o escritor de bits
@@ -586,7 +578,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
     int dc_anterior_Cr = 0;
 
     double bloco_atual[8][8];
-    char mantissa_buffer[17]; // Buffer para a string da mantissa (max 16 bits + \0)
+    char mantissa_buffer[17]; 
 
     int divisor = DOWNSAMPLE_DIVISOR; // variavel que indica o divisor das matrizes Cb e Cr caso tenha ocorrido compressao jpeg e consequente downsampling
     if(k == 0) divisor = 1;
@@ -608,18 +600,13 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             // --- Escreve os bits do bloco no arquivo ---
 
             // A. Codifica o coeficiente DC
-            int dc_cat = _get_category(bloco_codificado.DC_dif);
 
-            printf("DC_dif: %d -> dc_cat: %d\n", bloco_codificado.DC_dif, dc_cat);
-            if (dc_cat < 0 || dc_cat > 11) {
-                printf("ERRO: Categoria DC inválida!\n");
-                exit(1); // Força a saída para vermos o erro
-            }
-
+            int dc_cat = _get_categoria(bloco_codificado.DC_dif);
+          
             const char* dc_prefixo = huffman_dc_lum_codes[dc_cat];
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            _write_bits(&writer, dc_prefixo);
-            _write_bits(&writer, mantissa_buffer);
+            _escreve_bits(&writer, dc_prefixo);
+            _escreve_bits(&writer, mantissa_buffer);
             
             // B. Codifica os coeficientes AC
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) { // Renomeei 'qtd_trinca' para 'qtd_pares' para consistência
@@ -627,29 +614,20 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
 
                 // --- Lógica para tratar os símbolos especiais ---
                 if (par.zeros == 0 && par.coeficiente == 0) { // Símbolo EOB
-                    _write_bits(&writer, huffman_ac_lum_codes[0][0]);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[0][0]);
                     break; 
                 } 
                 else if (par.zeros == 15 && par.coeficiente == 0) { // Símbolo ZRL
-                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } 
                 else { // Par RLE normal
-                    int ac_cat = _get_category(par.coeficiente);
 
-                    printf("  AC Coef: %d, Zeros: %d -> ac_cat: %d\n", par.coeficiente, par.zeros, ac_cat);
-                    if (ac_cat < 0 || ac_cat > 10) {
-                         printf("ERRO: Categoria AC inválida!\n");
-                         exit(1);
-                    }
-                    if (par.zeros < 0 || par.zeros > 15) {
-                        printf("ERRO: Quantidade de zeros AC inválida!\n");
-                        exit(1);
-                    }
-                    
+                    int ac_cat = _get_categoria(par.coeficiente);
+
                     const char* ac_prefixo = huffman_ac_lum_codes[par.zeros][ac_cat];
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    _write_bits(&writer, ac_prefixo);
-                    _write_bits(&writer, mantissa_buffer);
+                    _escreve_bits(&writer, ac_prefixo);
+                    _escreve_bits(&writer, mantissa_buffer);
                 }
             }
         }
@@ -669,22 +647,22 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Cb);
             dc_anterior_Cb += bloco_codificado.DC_dif;
 
-            int dc_cat = _get_category(bloco_codificado.DC_dif);
-            _write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            int dc_cat = _get_categoria(bloco_codificado.DC_dif);
+            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            _write_bits(&writer, mantissa_buffer);
+            _escreve_bits(&writer, mantissa_buffer);
 
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
                 if (par.zeros == 0 && par.coeficiente == 0) {
-                    _write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                    _escreve_bits(&writer, huffman_ac_lum_codes[0][0]); break;
                 } else if (par.zeros == 15 && par.coeficiente == 0) {
-                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
-                    int ac_cat = _get_category(par.coeficiente);
-                    _write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    int ac_cat = _get_categoria(par.coeficiente);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    _write_bits(&writer, mantissa_buffer);
+                    _escreve_bits(&writer, mantissa_buffer);
                 }
             }
         }
@@ -701,22 +679,22 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Cr);
             dc_anterior_Cr += bloco_codificado.DC_dif;
             
-            int dc_cat = _get_category(bloco_codificado.DC_dif);
-            _write_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            int dc_cat = _get_categoria(bloco_codificado.DC_dif);
+            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
-            _write_bits(&writer, mantissa_buffer);
+            _escreve_bits(&writer, mantissa_buffer);
 
             for(int i = 0; i < bloco_codificado.qtd_pares; i++) {
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
                 if (par.zeros == 0 && par.coeficiente == 0) {
-                    _write_bits(&writer, huffman_ac_lum_codes[0][0]); break;
+                    _escreve_bits(&writer, huffman_ac_lum_codes[0][0]); break;
                 } else if (par.zeros == 15 && par.coeficiente == 0) {
-                    _write_bits(&writer, huffman_ac_lum_codes[15][0]);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
-                    int ac_cat = _get_category(par.coeficiente);
-                    _write_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    int ac_cat = _get_categoria(par.coeficiente);
+                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
-                    _write_bits(&writer, mantissa_buffer);
+                    _escreve_bits(&writer, mantissa_buffer);
                 }
             }
         }
