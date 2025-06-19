@@ -138,9 +138,18 @@ int _read_bit(BitReader *reader);
 // Lê multiplos bits de um arquivo e armazena na struct
 int _read_bits(BitReader *reader, int n, int *value_out);
 
+// Funções de decodificação para a codificação entropica
 int _decode_huffman_dc(BitReader *reader);
 void _inverter_zigzag(int vetor[64], double bloco[8][8]);
 int _read_mantissa(BitReader *reader, int categoria);
+
+// Função que executa a codificação da compressao sem perdas sem perdas (diferença + estatística) em um canal de uma imagem RGB,
+// escrevendo o resultado no arquivo armazenado no bitwriter utilizando o buffer implementado
+void _executar_codificacao_lossless_canal(unsigned char** canal, int altura, int largura, BitWriter* writer);
+
+// Função que executa a decodificação da compressao sem perdas (diferença + estatística) em um canal de uma imagem RGB, lendo o pixel
+// atual escrito no arquivo, decodificando seu valor original e escrevendo na matriz do canal sendo processado
+void _executar_decodificacao_lossless_canal(unsigned char** canal, int altura, int largura, BitReader* reader);
 
 /************************************
 * STATIC FUNCTIONS
@@ -524,6 +533,64 @@ void _decodificar_bloco(BitReader *reader, int *dc_anterior, double bloco_saida[
     _inverter_zigzag(zig_zag_vetor, bloco_saida);
 }
 
+void _executar_codificacao_lossless_canal(unsigned char** canal, int altura, int largura, BitWriter* writer) {
+    int prev_pixel = 0;
+    char mantissa_str[17]; // Buffer para a string da mantissa
+
+    for (int i = 0; i < altura; i++) {
+        for (int j = 0; j < largura; j++) {
+            // 1. Calcular a diferença entre o pixel atual e o anterior
+            int diff;
+            if (i == 0 && j == 0) { // se o pixel atual é o primeiro, a diferença é por 0
+                diff = canal[i][j];
+            } else {
+                diff = canal[i][j] - prev_pixel;
+            }
+            prev_pixel = canal[i][j];
+
+            // 2. Obter categoria da diferença, aproveitando a tabela 3 huffman das diferenças entre DC
+            // que faz parte da codificação entrópica JPEG 
+            int categoria = _get_categoria(diff);
+
+            // 3. Obter o prefixo Huffman da tabela estática DC, usando a tabela 3 das diferenças DC
+            const char* prefixo = huffman_dc_lum_codes[categoria];
+            
+            // 4. Obter a mantissa
+            _get_mantissa(diff, categoria, mantissa_str);
+
+            // 5. Escrever no arquivo usando a escrita de bits já implementada na codificação entrópica JPEG
+            _escreve_bits(writer, prefixo);
+            _escreve_bits(writer, mantissa_str);
+        }
+    }
+}
+
+void _executar_decodificacao_lossless_canal(unsigned char** canal, int altura, int largura, BitReader* reader) {
+    int prev_pixel = 0;
+
+    for (int i = 0; i < altura; i++) {
+        for (int j = 0; j < largura; j++) {
+            // 1. Decodificar a categoria usando a tabela Huffman DC estática de forma analoga a decodificacao entropica JPEG
+            int categoria = _decode_huffman_dc(reader);
+
+            // 2. Ler a mantissa para obter o valor da diferença
+            int diff = _read_mantissa(reader, categoria);
+
+            // 3. Reconstruir o valor do pixel atual calculando seu valor real pela diferença
+            int pixel_atual;
+            if (i == 0 && j == 0) {
+                pixel_atual = diff;
+            } else {
+                pixel_atual = prev_pixel + diff;
+            }
+            
+            // escrita no canal o pixel correto
+            canal[i][j] = (unsigned char)pixel_atual;
+            prev_pixel = pixel_atual;
+        }
+    }
+}
+
 /************************************
 * GLOBAL FUNCTIONS
 ************************************/
@@ -762,3 +829,29 @@ void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k) {
     }
 }
 
+void executar_codificacao_lossless_rgb(RGBImg rgb_img, FILE* output_file) {
+    // 1. Preparar o BitWriter com o arquivo de saída
+    BitWriter writer = {0, 0, output_file};
+
+    // 2. Processar cada canal (R, G, B) e escrever seus pixels codificados no arquivo
+    // A codificação funciona usando a Tabela 2 de categorias DC com prefixos que guardam o tamanho da diferença.
+    // Assim, calcula-se a diferença, seu tamanho, obtem-se seu prefixo huffman e escreve-se o prefixo e a mantissa da diferença
+    // no arquivo.
+    _executar_codificacao_lossless_canal(rgb_img.R, rgb_img.height, rgb_img.width, &writer);
+    _executar_codificacao_lossless_canal(rgb_img.G, rgb_img.height, rgb_img.width, &writer);
+    _executar_codificacao_lossless_canal(rgb_img.B, rgb_img.height, rgb_img.width, &writer);
+
+    // 3. Finalizar a escrita
+    _flush_bits(&writer); // Escreve o último byte se houver bits pendentes
+}
+
+void executar_decodificacao_lossless_rgb(RGBImg rgb_img, FILE* input_file) {
+   // 1. Preparar o BitReader com o arquivo de entrada
+    BitReader reader;
+    _init_bit_reader(&reader, input_file);
+
+    // 2. Decodificar cada canal chamando a função auxiliar
+    _executar_decodificacao_lossless_canal(rgb_img.R, rgb_img.height, rgb_img.width, &reader);
+    _executar_decodificacao_lossless_canal(rgb_img.G, rgb_img.height, rgb_img.width, &reader);
+    _executar_decodificacao_lossless_canal(rgb_img.B, rgb_img.height, rgb_img.width, &reader);
+}

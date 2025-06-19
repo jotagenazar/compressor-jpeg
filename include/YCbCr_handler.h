@@ -112,15 +112,6 @@ YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled);
 
 
 // Função que aplica a DCT na imagem passada como parâmetro, realizando a operação de multiplicação de matrizes bloco a bloco
-// e retornando a nova imagem YCbCr no dominio das frequencias 
-YCbCrImg aplicar_DCT_YCbCr(YCbCrImg YCbCr_img);
-
-// Função que aplica a inversa da DCT na imagem no dominio de frequências passada como parâmetro, realizando a operação de 
-// multiplicação de matrizes entre cada bloco de coeficientes e retornando uma imagem YCbCrcom os blocos recuperados.
-YCbCrImg aplicar_IDCT_YCbCr(YCbCrImg YCbCr_DCT);
-
-
-// Função que aplica a DCT na imagem passada como parâmetro, realizando a operação de multiplicação de matrizes bloco a bloco
 // e retornando a nova imagem YCbCr_downsampled no dominio das frequencias 
 YCbCrImg aplicar_DCT_YCbCr_downsampled(YCbCrImg YCbCr_img);
 

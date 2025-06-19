@@ -86,7 +86,16 @@ YCbCrImg desquantizar_imagem(YCbCrImg img_dct, double k);
 // Funcao que aplica a codificao entropica na imagem passado como parametro, e escreve em um arquivo de saída  
 void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k);
 
-// Funcao que desfaz a codificao entropica na imagem passado como parametro, e escreve os blocos decodificados na matriz YCbCr
+// Funcao que faz a decodificação entropica na imagem passado como parametro, e escreve os blocos decodificados na matriz YCbCr
 void executar_decodificacao_entropica(YCbCrImg img, FILE *arquivo, double k);
+
+// Função que faz a codificação por diferença + codificação estatística em uma imagem RGB passada como parâmetro, escrevendo
+// cada pixel codificado de cada matriz R G e B em sequência no arquivo passado.
+void executar_codificacao_lossless_rgb(RGBImg rgb_img, FILE* output_file);
+
+// Função que faz a decodificação por diferença + codificação estatística em uma imagem RGB passada como parâmetro, escrevendo
+// cada pixel decodificado em sequencia no arquivo na matriz correta R G ou B (ja que sabemos o tamanho fixo de cada uma pelo header,
+// sabemos a posição de cada pixel escrito em sequencia no arquivo)
+void executar_decodificacao_lossless_rgb(RGBImg rgb_img, FILE* input_file);
 
 #endif

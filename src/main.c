@@ -73,26 +73,12 @@ int main()
 
             fclose(input_file);
 
-
-            // Criação matriz YCbCr e conversão da matriz RGB lida para ela
-            YCbCrImg YCbCr_img = alocar_YCbCr(rgb_img.width, rgb_img.height);
-            RGB_to_YCbCr(rgb_img, YCbCr_img);
-            liberar_RGB(rgb_img);
-
             // não houve compressão, o fator k da quantização usado foi 0
-            k = 0;
-
-
-            // Transformo o dominio da matriz ycbcr para o dominio das frequencias usando dct para aproveitar a codificação
-            // por diferenças e estatística do padrão jpeg. 
-            // Matematicamente, a transformacao dct não resulta em perdas e a operação realizada computacionalmente usando doubles
-            // não terá perda de informação para a representação em 24 bits das cores, além de que a representação decimal 
-            // que estaria sujeita a erros de representação por double é numericamente ínfima para a representação das imagens.
-            YCbCrImg YCbCr_freq = aplicar_DCT_YCbCr(YCbCr_img);
-            liberar_YCbCr(YCbCr_img);
-            YCbCr_img = YCbCr_freq;
+            k = 0.0;
 
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
+            // Composição do arquivo: headers bmp originais -> fator k = 0 (usado para indicar que foi comprimido sem perdas) ->
+            //                         pixels codificados da matriz R, depois G, depois B
             FILE *output_file = abrir_arquivo(output_filename, "wb");
 
                 // escreve os headers bmp da imagem original
@@ -101,7 +87,8 @@ int main()
                 // escreve o k como 0 indicando que nao houve compressao jpeg
                 fwrite(&k, sizeof(double), 1, output_file);
 
-                executar_codificacao_entropica(YCbCr_img, output_file, k);
+                // escrita codificacao sem perdas, processa cada matriz e escreve no arquivo
+                executar_codificacao_lossless_rgb(rgb_img, output_file);
 
                 // calculo tamanho arquivo obtendo valor bit apontado no final do arquivo
                 output_size = ftell(output_file); 
@@ -114,8 +101,7 @@ int main()
             double taxa_compressao = (double) input_size / output_size;
             printf("Taxa de Compressão: %.2lf\n", taxa_compressao);
 
-
-            liberar_YCbCr(YCbCr_img);
+            liberar_RGB(rgb_img);
 
             break;
         }
@@ -129,11 +115,23 @@ int main()
             printf("Nome do arquivo da nova imagem comprimida: ");
             scanf(" %s", output_filename);
 
-            printf("Fator k de compressão da imagem (recomendado: 5): ");
+            printf("\na compressão com k = 5 apresentou taxas altas de compressão, mas que não descaracterizavam os objetos das imagens ");
+            printf("de forma definitiva, chegando a taxas entre 15:1 e 20:1. Para compressões com perdas mais imperceptíveis mas taxas ");
+            printf("de compressão ainda significativas, encontramos k = 2 como um valor que preserva bem as características da imagem.");
+
+            printf("Fator k de compressão da imagem (sendo k != 0): ");
             scanf(" %lf", &k);
 
+            // Teste de valor k válido
+            while(k == 0) {
+                printf("\nValor de k inválido! O fator k não pode ser 0. Digite um valor válido.\n");
+                
+                printf("Fator k de compressão da imagem (sendo k != 0): ");
+                scanf(" %lf", &k);
+            }
 
-            // Leitura do arquivo bmp para as structs de header e matriz RGB
+
+            // Leitura do arquivo bmp para as structs de header e matriz RGB  
             FILE *input_file = abrir_arquivo(input_filename, "rb");
 
                 // leitura e importação do header do arquivo e do header da imagem
@@ -176,6 +174,7 @@ int main()
 
 
             // Escrita do arquivo binário de saída codificado e comprimido por diferença e huffman
+            // Composição do arquivo: headers bmp originais -> fator k -> blocos pós codificação entrópica de Y, depois de Cb, depois de Cr
             FILE *output_file = abrir_arquivo(output_filename, "wb");
 
                 // repete os headers bmp da imagem original
@@ -212,6 +211,8 @@ int main()
             printf("Nome do arquivo da nova imagem *.bmp descomprimida: ");
             scanf(" %s", output_filename);
 
+            YCbCrImg img;
+            RGBImg rgb_final;
 
             // Leitura do arquivo e headers bmp
             FILE *input_file = abrir_arquivo(input_filename, "rb");
@@ -223,25 +224,25 @@ int main()
                 // leitura do K
                 fread(&k, sizeof(double), 1, input_file);
 
-                YCbCrImg img;
-                if(k == 0) img = alocar_YCbCr(bmp_info_header.biWidth, bmp_info_header.biHeight);
-                else img = alocar_YCbCr_downsampled(bmp_info_header.biWidth, bmp_info_header.biHeight);
-
-                executar_decodificacao_entropica(img, input_file, k);
+                if(k != 0)
+                {
+                    printf("\nDetectado k != 0. Aplicando descompressão entrópica JPEG.\n");
+                    alocar_YCbCr_downsampled(bmp_info_header.biWidth, bmp_info_header.biHeight);
+                    executar_decodificacao_entropica(img, input_file, k);
+                }
+                else
+                {
+                    printf("\nDetectado k=0. Aplicando descompressão sem perdas.\n");
+                    rgb_final = alocar_RGB(bmp_info_header.biWidth, bmp_info_header.biHeight);
+                    executar_decodificacao_lossless_rgb(rgb_final, input_file);
+                }
 
             fclose(input_file);
 
-            if(k == 0)
-            {
-                // se for compressao sem perdas, apenas retorno a imagem do dominio das frequencias para o espacial usando idct
-                YCbCrImg YCbCr_IDCT = aplicar_IDCT_YCbCr(img);
-                liberar_YCbCr(img);
 
-                img = YCbCr_IDCT;
-            }
-            else
+            // se for compressao com perdas, refaço todo o pipeline jpeg pelo caminho reverso
+            if(k != 0)
             {   
-                // se for compressao com perdas, refaço todo o pipeline jpeg pelo caminho reverso
                 YCbCrImg YCbCr_desquantizado = desquantizar_imagem(img, k);
                 liberar_YCbCr_downsampled(img);
 
@@ -251,19 +252,16 @@ int main()
                 YCbCrImg YCbCr_up = upsample_YCbCr(YCbCr_IDCT);
                 liberar_YCbCr_downsampled(YCbCr_IDCT);
 
-                img = YCbCr_up;
+                rgb_final = alocar_RGB(YCbCr_up.width, YCbCr_up.height);
+                YCbCr_to_RGB(YCbCr_up, rgb_final);
+                liberar_YCbCr(YCbCr_up);
             }
 
-
-            RGBImg rgb_final = alocar_RGB(img.width, img.height);
-            YCbCr_to_RGB(img, rgb_final);
 
             strcat(output_filename, ".bmp");
             exportar_bmp(output_filename, bmp_file_header, bmp_info_header, rgb_final);
             printf("\nImagem descomprimida salva como %s\n", output_filename);
 
-
-            liberar_YCbCr(img);
             liberar_RGB(rgb_final);
 
             break;

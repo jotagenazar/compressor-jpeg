@@ -542,34 +542,6 @@ YCbCrImg upsample_YCbCr(YCbCrImg YCbCr_downsampled)
     return YCbCr_upsampled;
 }
 
-YCbCrImg aplicar_DCT_YCbCr(YCbCrImg YCbCr_img)
-{
-    YCbCrImg YCbCr_DCT;
-
-    YCbCr_DCT.width = YCbCr_img.width;
-    YCbCr_DCT.height = YCbCr_img.height;
-
-    YCbCr_DCT.Y  = _aplicar_DCT_matriz(YCbCr_img.Y, YCbCr_img.height, YCbCr_img.width);
-    YCbCr_DCT.Cb = _aplicar_DCT_matriz(YCbCr_img.Cb, YCbCr_img.height, YCbCr_img.width);
-    YCbCr_DCT.Cr = _aplicar_DCT_matriz(YCbCr_img.Cr, YCbCr_img.height, YCbCr_img.width);
-
-    return YCbCr_DCT;
-}
-
-YCbCrImg aplicar_IDCT_YCbCr(YCbCrImg YCbCr_DCT)
-{
-    YCbCrImg YCbCr_img;
-
-    YCbCr_img.width = YCbCr_DCT.width;
-    YCbCr_img.height = YCbCr_DCT.height;
-
-    YCbCr_img.Y  = _aplicar_IDCT_matriz(YCbCr_DCT.Y, YCbCr_DCT.height, YCbCr_DCT.width);
-    YCbCr_img.Cb = _aplicar_IDCT_matriz(YCbCr_DCT.Cb, YCbCr_DCT.height, YCbCr_DCT.width);
-    YCbCr_img.Cr = _aplicar_IDCT_matriz(YCbCr_DCT.Cr, YCbCr_DCT.height, YCbCr_DCT.width);
-
-    return YCbCr_img;
-}
-
 YCbCrImg aplicar_DCT_YCbCr_downsampled(YCbCrImg YCbCr_img)
 {
     YCbCrImg YCbCr_DCT;
