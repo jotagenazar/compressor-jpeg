@@ -459,8 +459,8 @@ int _decode_huffman_ac(BitReader *reader, int *run, int *category) {
         code[i] = bit_val + '0';
         code[i+1] = '\0';
 
-        // OBS: Tabela AC de luminância usada para tudo (simplificação do projeto)
-        for (int r = 0; r < 16; r++) { // run
+        // OBS: Tabela AC de luminância usada para tudo 
+        for (int r = 0; r < 16; r++) { 
             for (int s = 0; s < 11; s++) { // size/category
                 if (huffman_ac_lum_codes[r][s] && strcmp(code, huffman_ac_lum_codes[r][s]) == 0) {
                     *run = r;
@@ -477,7 +477,7 @@ void _inverter_zigzag(int vetor[64], double bloco[8][8]) {
     for (int i = 0; i < 64; i++) {
         int x = zigzag[i][0];
         int y = zigzag[i][1];
-        bloco[x][y] = vetor[i];
+        bloco[x][y] = (double) vetor[i];
     }
 }
 
