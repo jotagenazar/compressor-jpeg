@@ -1,6 +1,6 @@
 CC = gcc
 DEBUG = -g3 -fsanitize=address -Wall
-CFLAGS = -std=c99 -lm $(DEBUG) # remova o debug quando nao for utilizar suas flags
+CFLAGS = -std=c99 -lm # $(DEBUG) # remova o asterisco antes da variavel de debug quando for utilizar suas flags
 
 TARGET = compressor-jpeg
 

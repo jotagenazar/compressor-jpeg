@@ -44,4 +44,6 @@ Na opção 2, com perdas, a compressão com k = 5 apresentou taxas altas de comp
 
 ## Instruções de Compilação
 
-Compile o programa normalmente utilizando o Makefile disponibilizado através do comando make all.
+Compile o programa normalmente utilizando o Makefile disponibilizado através do comando "make all".
+
+Caso queira reestabelecer as flags de debug -g3 -fsanitize=address -Wall, remova o # de comentário antes de $(DEBUG) na linha 3 do Makefile.

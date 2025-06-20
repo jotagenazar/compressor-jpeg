@@ -635,7 +635,7 @@ YCbCrImg desquantizar_imagem(YCbCrImg quantizado, double k)
 
 void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, double k) 
 {
-    // 1. Inicializa o escritor de bits
+    // Inicializa o escritor de bits
     BitWriter writer = {0, 0, arquivo};
     
     // Variáveis de controle para a codificação diferencial de cada componente
@@ -649,9 +649,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
     int divisor = DOWNSAMPLE_DIVISOR; // variavel que indica o divisor das matrizes Cb e Cr caso tenha ocorrido compressao jpeg e consequente downsampling
     if(k == 0) divisor = 1;
 
-    // ======================================================================
-    // === PASSO 1: Processa o Canal de Luminância (Y)
-    // ======================================================================
+    // Processa o Canal de Luminância (Y)
     for (int i_bloco = 0; i_bloco < img_quantizada.height; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < img_quantizada.width; j_bloco += 8) {
             
@@ -661,11 +659,10 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
 
             // Codifica o bloco para obter DC_dif e os pares RLE para os ACs
             BLOCO_CODIFICADO bloco_codificado = _codificar_bloco_entropia(bloco_atual, dc_anterior_Y);
-            dc_anterior_Y += bloco_codificado.DC_dif; // ATENÇÃO: Atualiza o DC anterior para a PRÓXIMA iteração
+            dc_anterior_Y += bloco_codificado.DC_dif; // Atualiza o DC anterior para a prox iteração
 
-            // --- Escreve os bits do bloco no arquivo ---
 
-            // A. Codifica o coeficiente DC
+            //Codifica o coeficiente DC
 
             int dc_cat = _get_categoria(bloco_codificado.DC_dif);
           
@@ -674,11 +671,10 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             _escreve_bits(&writer, dc_prefixo);
             _escreve_bits(&writer, mantissa_buffer);
             
-            // B. Codifica os coeficientes AC
-            for(int i = 0; i < bloco_codificado.qtd_pares; i++) { // Renomeei 'qtd_trinca' para 'qtd_pares' para consistência
+            // Codifica os coeficientes AC
+            for(int i = 0; i < bloco_codificado.qtd_pares; i++) { 
                 Par_RLE par = bloco_codificado.vetor_par_rle[i];
 
-                // --- Lógica para tratar os símbolos especiais ---
                 if (par.zeros == 0 && par.coeficiente == 0) { // Símbolo EOB
                     _escreve_bits(&writer, huffman_ac_lum_codes[0][0]);
                     break; 
@@ -699,9 +695,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
         }
     }
     
-    // ======================================================================
-    // === PASSO 2: Processa o Canal de Crominância (Cb)
-    // ======================================================================
+    // Processa o Canal de Crominância (Cb)
     int altura_chroma = img_quantizada.height / divisor;
     int largura_chroma = img_quantizada.width / divisor;
 
@@ -714,7 +708,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             dc_anterior_Cb += bloco_codificado.DC_dif;
 
             int dc_cat = _get_categoria(bloco_codificado.DC_dif);
-            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]);
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
             _escreve_bits(&writer, mantissa_buffer);
 
@@ -726,7 +720,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
                     _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
                     int ac_cat = _get_categoria(par.coeficiente);
-                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); 
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
                     _escreve_bits(&writer, mantissa_buffer);
                 }
@@ -734,9 +728,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
         }
     }
 
-    // ======================================================================
-    // === PASSO 3: Processa o Canal de Crominância (Cr)
-    // ======================================================================
+    // Processa o Canal de Crominância (Cr)
     for (int i_bloco = 0; i_bloco < altura_chroma; i_bloco += 8) {
         for (int j_bloco = 0; j_bloco < largura_chroma; j_bloco += 8) {
             for (int i = 0; i < 8; i++) for (int j = 0; j < 8; j++)
@@ -746,7 +738,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
             dc_anterior_Cr += bloco_codificado.DC_dif;
             
             int dc_cat = _get_categoria(bloco_codificado.DC_dif);
-            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]); // Usando tabela de Luma
+            _escreve_bits(&writer, huffman_dc_lum_codes[dc_cat]);
             _get_mantissa(bloco_codificado.DC_dif, dc_cat, mantissa_buffer);
             _escreve_bits(&writer, mantissa_buffer);
 
@@ -758,7 +750,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
                     _escreve_bits(&writer, huffman_ac_lum_codes[15][0]);
                 } else {
                     int ac_cat = _get_categoria(par.coeficiente);
-                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]); // Usando tabela de Luma
+                    _escreve_bits(&writer, huffman_ac_lum_codes[par.zeros][ac_cat]);
                     _get_mantissa(par.coeficiente, ac_cat, mantissa_buffer);
                     _escreve_bits(&writer, mantissa_buffer);
                 }
@@ -766,7 +758,7 @@ void executar_codificacao_entropica(YCbCrImg img_quantizada, FILE *arquivo, doub
         }
     }
 
-    // 2. Finaliza a escrita, descarregando quaisquer bits restantes no buffer
+    // Finaliza a escrita, descarregando quaisquer bits restantes no buffer
     _flush_bits(&writer);
 
 }
